@@ -80,7 +80,7 @@ ${input}
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 2000,
         system: SYSTEM,
         messages: [{ role: "user", content: userContent }],
@@ -88,12 +88,18 @@ ${input}
     });
 
     const data = await response.json();
+
+    if (data.error) {
+      console.error("Anthropic API error:", data.error);
+      return res.status(500).json({ error: `API 오류: ${data.error.message || JSON.stringify(data.error)}` });
+    }
+
     const text = data.content?.[0]?.text || "";
     const clean = text.replace(/```json\n?|```/g, "").trim();
     const parsed = JSON.parse(clean);
     res.status(200).json(parsed);
   } catch (e) {
-    console.error(e);
+    console.error("Analyze error:", e);
     res.status(500).json({ error: "분석 중 오류가 발생했습니다." });
   }
 }
