@@ -1,8 +1,16 @@
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "20mb",
+    },
+  },
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { input } = req.body;
-  if (!input?.trim()) return res.status(400).json({ error: "입력값 없음" });
+  const { input, images } = req.body;
+  if (!input?.trim() && (!images || images.length === 0)) return res.status(400).json({ error: "입력값 없음" });
 
   const SYSTEM = `당신은 자기 구조 분석 전문가입니다.
 사용자가 자신에 대해 입력한 모든 종류의 정보(검사 결과, 주변 묘사, 자기 관찰, 패턴 기록 등)를 종합 분석해서 그 사람 전용 위기 신호 자기점검 체계를 만들어주세요.
@@ -57,7 +65,18 @@ ${input}
         model: "claude-sonnet-4-20250514",
         max_tokens: 2000,
         system: SYSTEM,
-        messages: [{ role: "user", content: USER }],
+        messages: [{
+          role: "user",
+          content: images && images.length > 0
+            ? [
+                ...images.map((img) => ({
+                  type: "image",
+                  source: { type: "base64", media_type: img.mimetype, data: img.base64 },
+                })),
+                { type: "text", text: USER },
+              ]
+            : USER,
+        }],
       }),
     });
 

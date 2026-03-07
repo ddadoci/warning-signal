@@ -10,20 +10,62 @@ export default function App() {
   const [checked, setChecked] = useState({});
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadedImages, setUploadedImages] = useState([]);
   const textareaRef = useRef();
   const fileInputRef = useRef();
 
   const handleFiles = useCallback((files) => {
     Array.from(files).forEach((file) => {
-      if (file.type === "text/plain" || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
+      const name = file.name.toLowerCase();
+      const isText = file.type === "text/plain" || name.endsWith(".txt") || name.endsWith(".md");
+      const isCSV = file.type === "text/csv" || name.endsWith(".csv");
+      const isImage = file.type.startsWith("image/") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg");
+      const isPDF = file.type === "application/pdf" || name.endsWith(".pdf");
+      const isWord = name.endsWith(".docx") || name.endsWith(".doc") || file.type.includes("wordprocessingml") || file.type === "application/msword";
+      const isExcel = name.endsWith(".xlsx") || name.endsWith(".xls") || file.type.includes("spreadsheetml") || file.type === "application/vnd.ms-excel";
+
+      if (isText || isCSV) {
         const reader = new FileReader();
         reader.onload = (e) => {
           setInputText((prev) => prev + `\n\n[${file.name}]\n${e.target.result}`);
           setUploadedFiles((f) => [...f, file.name]);
         };
         reader.readAsText(file);
+      } else if (isImage) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target.result;
+          const base64 = dataUrl.split(",")[1];
+          const mediaType = file.type || (name.endsWith(".png") ? "image/png" : "image/jpeg");
+          setUploadedImages((imgs) => [...imgs, { filename: file.name, mimetype: mediaType, base64 }]);
+          setUploadedFiles((f) => [...f, file.name]);
+        };
+        reader.readAsDataURL(file);
+      } else if (isPDF || isWord || isExcel) {
+        setUploadedFiles((f) => [...f, `${file.name} (처리 중...)`]);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const bytes = new Uint8Array(e.target.result);
+          let binary = "";
+          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          const base64data = btoa(binary);
+          try {
+            const res = await fetch("/api/extract-text", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ filename: file.name, mimetype: file.type, base64data }),
+            });
+            const { text, error } = await res.json();
+            if (error) throw new Error(error);
+            setInputText((prev) => prev + `\n\n[${file.name}]\n${text}`);
+            setUploadedFiles((f) => f.map((n) => n === `${file.name} (처리 중...)` ? file.name : n));
+          } catch {
+            setUploadedFiles((f) => f.map((n) => n === `${file.name} (처리 중...)` ? `${file.name} (파싱 실패)` : n));
+          }
+        };
+        reader.readAsArrayBuffer(file);
       } else {
-        setUploadedFiles((f) => [...f, `${file.name} (텍스트 파일만 지원)`]);
+        setUploadedFiles((f) => [...f, `${file.name} (지원하지 않는 형식)`]);
       }
     });
   }, []);
@@ -35,14 +77,14 @@ export default function App() {
   };
 
   const generate = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && uploadedImages.length === 0) return;
     setPhase("loading");
     setError(null);
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: inputText }),
+        body: JSON.stringify({ input: inputText, images: uploadedImages }),
       });
       const parsed = await res.json();
       if (parsed.error) throw new Error(parsed.error);
@@ -253,9 +295,9 @@ export default function App() {
               </div>
             )}
             <div style={css.dropHint}>
-              txt, md 파일 드래그 또는{" "}
+              txt, md, csv, pdf, docx, xlsx, png, jpg 파일 드래그 또는{" "}
               <span onClick={() => fileInputRef.current?.click()} style={css.uploadLink}>클릭해서 업로드</span>
-              <input ref={fileInputRef} type="file" accept=".txt,.md" multiple style={{ display: "none" }}
+              <input ref={fileInputRef} type="file" accept=".txt,.md,.csv,.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" multiple style={{ display: "none" }}
                 onChange={(e) => handleFiles(e.target.files)} />
             </div>
           </div>
@@ -270,8 +312,8 @@ export default function App() {
 
           <button
             onClick={generate}
-            disabled={!inputText.trim()}
-            style={{ ...css.generateBtn, opacity: inputText.trim() ? 1 : 0.3, cursor: inputText.trim() ? "pointer" : "not-allowed" }}
+            disabled={!inputText.trim() && uploadedImages.length === 0}
+            style={{ ...css.generateBtn, opacity: (inputText.trim() || uploadedImages.length > 0) ? 1 : 0.3, cursor: (inputText.trim() || uploadedImages.length > 0) ? "pointer" : "not-allowed" }}
           >
             위기 신호 체크리스트 생성 →
           </button>
