@@ -100,8 +100,24 @@ export default function App() {
         }),
         signal: controller.signal,
       });
-      const parsed = await res.json();
-      if (parsed.error) throw new Error(parsed.error);
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "분석 중 오류가 발생했습니다.");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+      }
+
+      const clean = fullText.replace(/```json\n?|```/g, "").trim();
+      const parsed = JSON.parse(clean);
       setResult(parsed);
       setPhase("result");
     } catch (e) {
