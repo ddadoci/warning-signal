@@ -75,7 +75,10 @@ ${input}
       max_tokens: 4096,
       stream: true,
       system: SYSTEM,
-      messages: [{ role: "user", content: userContent }],
+      messages: [
+        { role: "user", content: userContent },
+        { role: "assistant", content: "{" },
+      ],
     }),
   });
 
