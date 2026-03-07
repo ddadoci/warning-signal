@@ -39,7 +39,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "지원하지 않는 파일 형식" });
     }
 
-    res.status(200).json({ text });
+    const trimmed = text.length > 3000 ? text.slice(0, 3000) + "\n...(이하 생략)" : text;
+    res.status(200).json({ text: trimmed });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "파일 파싱 중 오류가 발생했습니다." });
