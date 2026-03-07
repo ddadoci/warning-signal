@@ -9,22 +9,72 @@ export default function App() {
   const [error, setError] = useState(null);
   const [checked, setChecked] = useState({});
   const [dragOver, setDragOver] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]); // { id, label }
+  const [uploadedImages, setUploadedImages] = useState([]); // { name, data, mimeType }
   const textareaRef = useRef();
   const fileInputRef = useRef();
 
   const handleFiles = useCallback((files) => {
     Array.from(files).forEach((file) => {
-      if (file.type === "text/plain" || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
+      const name = file.name.toLowerCase();
+
+      // 이미지 (PNG, JPG)
+      if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+        const id = Date.now() + Math.random();
+        setUploadedFiles((f) => [...f, { id, label: file.name }]);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64 = e.target.result.split(",")[1];
+          const mimeType = name.endsWith(".png") ? "image/png" : "image/jpeg";
+          setUploadedImages((prev) => [...prev, { name: file.name, data: base64, mimeType }]);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // 텍스트 파일 (TXT, MD)
+      if (file.type === "text/plain" || name.endsWith(".txt") || name.endsWith(".md")) {
+        const id = Date.now() + Math.random();
         const reader = new FileReader();
         reader.onload = (e) => {
           setInputText((prev) => prev + `\n\n[${file.name}]\n${e.target.result}`);
-          setUploadedFiles((f) => [...f, file.name]);
+          setUploadedFiles((f) => [...f, { id, label: file.name }]);
         };
         reader.readAsText(file);
-      } else {
-        setUploadedFiles((f) => [...f, `${file.name} (텍스트 파일만 지원)`]);
+        return;
       }
+
+      // 문서/엑셀/PDF
+      if (name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".pdf")) {
+        const id = Date.now() + Math.random();
+        setUploadedFiles((f) => [...f, { id, label: `${file.name} (처리 중...)` }]);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const base64 = e.target.result.split(",")[1];
+          try {
+            const res = await fetch("/api/parse", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ fileName: file.name, fileBase64: base64 }),
+            });
+            const data = await res.json();
+            if (data.text) {
+              setInputText((prev) => prev + `\n\n[${file.name}]\n${data.text}`);
+              setUploadedFiles((f) => f.map((item) => item.id === id ? { id, label: file.name } : item));
+            } else {
+              setUploadedFiles((f) => f.map((item) => item.id === id ? { id, label: `${file.name} (파싱 실패)` } : item));
+            }
+          } catch {
+            setUploadedFiles((f) => f.map((item) => item.id === id ? { id, label: `${file.name} (오류)` } : item));
+          }
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // 지원하지 않는 형식
+      const id = Date.now() + Math.random();
+      setUploadedFiles((f) => [...f, { id, label: `${file.name} (지원하지 않는 형식)` }]);
     });
   }, []);
 
@@ -35,14 +85,17 @@ export default function App() {
   };
 
   const generate = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && uploadedImages.length === 0) return;
     setPhase("loading");
     setError(null);
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: inputText }),
+        body: JSON.stringify({
+          input: inputText,
+          images: uploadedImages.length > 0 ? uploadedImages : undefined,
+        }),
       });
       const parsed = await res.json();
       if (parsed.error) throw new Error(parsed.error);
@@ -249,13 +302,13 @@ export default function App() {
             />
             {uploadedFiles.length > 0 && (
               <div style={css.fileList}>
-                {uploadedFiles.map((f, i) => <div key={i} style={css.fileItem}>📎 {f}</div>)}
+                {uploadedFiles.map((f) => <div key={f.id} style={css.fileItem}>📎 {f.label}</div>)}
               </div>
             )}
             <div style={css.dropHint}>
-              txt, md 파일 드래그 또는{" "}
+              txt, md, pdf, docx, xlsx, png, jpg 드래그 또는{" "}
               <span onClick={() => fileInputRef.current?.click()} style={css.uploadLink}>클릭해서 업로드</span>
-              <input ref={fileInputRef} type="file" accept=".txt,.md" multiple style={{ display: "none" }}
+              <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg" multiple style={{ display: "none" }}
                 onChange={(e) => handleFiles(e.target.files)} />
             </div>
           </div>
@@ -270,8 +323,8 @@ export default function App() {
 
           <button
             onClick={generate}
-            disabled={!inputText.trim()}
-            style={{ ...css.generateBtn, opacity: inputText.trim() ? 1 : 0.3, cursor: inputText.trim() ? "pointer" : "not-allowed" }}
+            disabled={!inputText.trim() && uploadedImages.length === 0}
+            style={{ ...css.generateBtn, opacity: (inputText.trim() || uploadedImages.length > 0) ? 1 : 0.3, cursor: (inputText.trim() || uploadedImages.length > 0) ? "pointer" : "not-allowed" }}
           >
             위기 신호 체크리스트 생성 →
           </button>
