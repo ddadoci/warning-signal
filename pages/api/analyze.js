@@ -17,7 +17,7 @@ export default async function handler(req) {
 - 각 신호는 입력된 데이터 중 하나 이상을 명시적 근거로 사용
 - 데이터 없는 영역은 있는 것들로 교차 추론
 - 신호는 행동/관계/내면 영역 골고루
-- 반드시 순수 JSON만 반환 (코드블록, 설명 텍스트 없이)`;
+- 반드시 순수 JSON만 반환. 응답의 첫 글자는 반드시 { 이어야 함. 코드블록(\`\`\`), 설명 텍스트, 주석 일체 금지.`;
 
   const USER = `다음은 사용자가 자신에 대해 입력한 정보입니다:
 
@@ -75,10 +75,7 @@ ${input}
       max_tokens: 4096,
       stream: true,
       system: SYSTEM,
-      messages: [
-        { role: "user", content: userContent },
-        { role: "assistant", content: "{" },
-      ],
+      messages: [{ role: "user", content: userContent }],
     }),
   });
 

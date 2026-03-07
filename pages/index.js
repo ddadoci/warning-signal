@@ -113,10 +113,10 @@ export default function App() {
         fullText += decoder.decode(value, { stream: true });
       }
 
-      const jsonText = "{" + fullText;
-      const end = jsonText.lastIndexOf("}");
-      if (end === -1) throw new Error("응답에서 JSON을 찾을 수 없습니다.");
-      const parsed = JSON.parse(jsonText.slice(0, end + 1));
+      const start = fullText.indexOf("{");
+      const end = fullText.lastIndexOf("}");
+      if (start === -1 || end === -1) throw new Error("응답에서 JSON을 찾을 수 없습니다.");
+      const parsed = JSON.parse(fullText.slice(start, end + 1));
       setResult(parsed);
       setPhase("result");
     } catch (e) {
