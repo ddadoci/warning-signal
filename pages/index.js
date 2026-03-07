@@ -161,7 +161,40 @@ export default function App() {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 10, paddingTop: 24 }}>
+            {/* Share block */}
+            <div style={css.shareBlock}>
+              <div style={css.blockLabel}>// 공유하기</div>
+              <p style={css.shareDesc}>내 위기 신호 체계가 생겼다면, 주변에도 알려보세요.</p>
+              <div style={css.shareRow}>
+                <button onClick={() => {
+                  const text = `나만의 위기 신호 체크리스트를 만들었어요.\n\n${result.identity}\n\ncheckmywarning.com`;
+                  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+                  window.open(url, "_blank");
+                }} style={css.shareBtn}>
+                  𝕏 트위터/X
+                </button>
+                <button onClick={() => {
+                  const text = `나만의 위기 신호 체크리스트를 만들었어요.\n\n${result.identity}\n\ncheckmywarning.com`;
+                  const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent("https://checkmywarning.com")}&quote=${encodeURIComponent(text)}`;
+                  window.open(url, "_blank");
+                }} style={css.shareBtn}>
+                  f 페이스북
+                </button>
+                <button onClick={() => {
+                  const text = `나만의 위기 신호 체크리스트를 만들었어요.\n\n"${result.identity}"\n\ncheckmywarning.com에서 직접 만들어보세요.`;
+                  navigator.clipboard.writeText(text).then(() => alert("복사됐어요! 어디든 붙여넣기하세요."));
+                }} style={css.shareBtn}>
+                  ⎘ 텍스트 복사
+                </button>
+                <button onClick={() => {
+                  navigator.clipboard.writeText("https://checkmywarning.com").then(() => alert("링크가 복사됐어요!"));
+                }} style={{ ...css.shareBtn, color: "#fff", borderColor: "#333" }}>
+                  🔗 링크 복사
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
               <button onClick={() => { setPhase("input"); setResult(null); setChecked({}); }} style={css.ctaBtnWhite}>처음으로</button>
               <button onClick={() => { setPhase("input"); setResult(null); setChecked({}); }} style={css.ctaBtnBlack}>정보 추가하고 재분석 →</button>
             </div>
@@ -402,4 +435,8 @@ const css = {
   crisisText: { fontSize: 12, color: "#777", lineHeight: 1.7 },
   ctaBtnWhite: { flex: 1, background: "transparent", color: "#333", border: "1px solid #1a1a1a", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", letterSpacing: "0.06em" },
   ctaBtnBlack: { flex: 2, background: "#fff", color: "#000", border: "none", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", fontWeight: 500, letterSpacing: "0.04em" },
+  shareBlock: { border: "1px solid #1a1a1a", borderRadius: 4, padding: "24px", marginBottom: 16 },
+  shareDesc: { fontSize: 13, color: "#444", marginBottom: 20, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" },
+  shareRow: { display: "flex", gap: 8, flexWrap: "wrap" },
+  shareBtn: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#666", background: "transparent", border: "1px solid #222", borderRadius: 2, padding: "8px 14px", cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.1s" },
 };
