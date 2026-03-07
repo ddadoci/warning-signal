@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import Head from "next/head";
+import Link from "next/link";
 
 export default function App() {
   const [phase, setPhase] = useState("input");
@@ -33,7 +34,6 @@ export default function App() {
     handleFiles(e.dataTransfer.files);
   };
 
-  // ← 핵심 변경: Anthropic 직접 호출 → 내 백엔드 호출
   const generate = async () => {
     if (!inputText.trim()) return;
     setPhase("loading");
@@ -58,16 +58,14 @@ export default function App() {
 
   if (phase === "loading") return (
     <>
-      <Head><title>분석 중 — 나만의 위기 신호 체크리스트</title></Head>
-      <div style={css.page}>
-        <div style={css.loadCard}>
-          <div style={css.loadDots}>
-            {[0,1,2].map(i => <div key={i} style={{ ...css.loadDot, animationDelay: `${i * 0.2}s` }} />)}
-          </div>
-          <p style={css.loadText}>입력한 정보를 교차 분석하는 중</p>
-          <p style={css.loadSub}>패턴 도출, 신호 설계 중…</p>
+      <Head><title>분석 중 — checkmywarning</title></Head>
+      <style>{globalStyle}</style>
+      <div style={css.loadPage}>
+        <div style={css.loadInner}>
+          <div style={css.loadBar}><div style={css.loadBarFill} /></div>
+          <p style={css.loadText}>당신의 패턴을 해독하는 중</p>
+          <p style={css.loadSub}>교차 분석 · 신호 도출 · 체계 설계</p>
         </div>
-        <style>{keyframes}</style>
       </div>
     </>
   );
@@ -77,113 +75,98 @@ export default function App() {
     const s2c = result.stage2?.filter((_, i) => checked[`s2-${i}`]).length || 0;
     const s3c = result.stage3?.filter((_, i) => checked[`s3-${i}`]).length || 0;
     const total = s1c + s2c * 2 + s3c * 3;
-    const statusColor = s3c >= 2 ? "#B84040" : s3c >= 1 || s2c >= 3 ? "#D4724A" : total >= 3 ? "#C9973A" : "#3D7A5C";
+    const statusColor = s3c >= 2 ? "#FF4444" : s3c >= 1 || s2c >= 3 ? "#FF8C42" : total >= 3 ? "#FFD700" : "#44FF88";
     const statusLabel = s3c >= 2 ? "즉각 멈춰야 함" : s3c >= 1 || s2c >= 3 ? "구조 점검 필요" : total >= 3 ? "초기 경보" : "안정";
 
     return (
       <>
-        <Head><title>나만의 위기 신호 체크리스트 — 결과</title></Head>
-        <style>{keyframes}</style>
-        <div style={css.page}>
-          <div style={css.resultCard}>
-            <div style={css.header}>
-              <div style={css.headerTag}>PERSONAL WARNING SIGNAL SYSTEM</div>
-              <div style={css.headerTitle}>{result.identity}</div>
-            </div>
-
-            <div style={css.statusBar}>
-              <div>
-                <div style={css.statusLabel}>현재 위험도</div>
-                <div style={{ ...css.statusScore, color: statusColor }}>{total}</div>
-                <div style={css.statusDesc}>{statusLabel}</div>
+        <Head><title>나만의 위기 신호 — 결과</title></Head>
+        <style>{globalStyle}</style>
+        <div style={css.resultPage}>
+          <Nav />
+          <div style={css.resultWrap}>
+            <div style={css.resultHero}>
+              <div style={css.resultHeroTag}>PERSONAL WARNING SIGNAL SYSTEM</div>
+              <div style={css.resultHeroTitle}>{result.identity}</div>
+              <div style={css.resultHeroScore}>
+                <span style={{ ...css.scoreNum, color: statusColor }}>{total}</span>
+                <span style={{ ...css.scoreLabel, color: statusColor }}>{statusLabel}</span>
               </div>
-              <div style={css.meterWrap}>
-                <div style={css.meterTrack}>
-                  <div style={{ ...css.meterFill, width: `${Math.min(total / 20 * 100, 100)}%`, background: statusColor }} />
+              <div style={css.scoreMeterWrap}>
+                <div style={css.scoreMeter}>
+                  <div style={{ ...css.scoreMeterFill, width: `${Math.min(total / 20 * 100, 100)}%`, background: statusColor }} />
                 </div>
+                <button onClick={() => setChecked({})} style={css.resetBtn}>RESET</button>
               </div>
-              <button onClick={() => setChecked({})} style={css.resetSmall}>초기화</button>
             </div>
 
-            <div style={css.section}>
-              <div style={css.sectionTag}>확인된 강점</div>
+            <div style={css.block}>
+              <div style={css.blockLabel}>// 확인된 강점</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {result.strengths?.map((str, i) => (
-                  <div key={i} style={css.strengthItem}>
-                    <div style={css.strengthLabel}>{str.label}</div>
+                  <div key={i} style={css.strengthCard}>
+                    <div style={css.strengthName}>{str.label}</div>
                     <div style={css.strengthBasis}>{str.basis}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <SignalBlock id="s1" badge="1단계 · 초기 경보" title="어긋나기 시작하는 신호"
-              color="#C9973A" bg="#FDF8E7" border="#E8C84A55"
+            <SignalBlock id="s1" tag="STAGE 01" label="초기 경보" accent="#FFD700"
               items={result.stage1} checked={checked} onToggle={toggleCheck} />
-            <SignalBlock id="s2" badge="2단계 · 중간 경보" title="구조적 문제 진입"
-              color="#D4724A" bg="#FBF0EB" border="#D4724A44"
+            <SignalBlock id="s2" tag="STAGE 02" label="구조 점검 필요" accent="#FF8C42"
               items={result.stage2} checked={checked} onToggle={toggleCheck} />
-            <SignalBlock id="s3" badge="3단계 · 위험 경보" title="즉각 멈춰야 함"
-              color="#B84040" bg="#F9ECEC" border="#B8404044"
+            <SignalBlock id="s3" tag="STAGE 03" label="즉각 멈춰야 함" accent="#FF4444"
               items={result.stage3} checked={checked} onToggle={toggleCheck} />
 
-            <div style={css.section}>
-              <div style={css.sectionTag}>정기 점검</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={css.block}>
+              <div style={css.blockLabel}>// 정기 점검 질문</div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 {result.weeklyQ?.map((q, i) => (
-                  <div key={i} style={css.qItem}>
-                    <span style={css.qNum}>W{i+1}</span>
+                  <div key={i} style={css.qRow}>
+                    <span style={css.qTag}>WEEKLY {i + 1}</span>
                     <span style={css.qText}>{q}</span>
                   </div>
                 ))}
-                <div style={{ ...css.qItem, borderTop: "2px solid #DDD8D0", paddingTop: 14, marginTop: 2 }}>
-                  <span style={{ ...css.qNum, fontWeight: 700, color: "#1C1916" }}>M1</span>
-                  <span style={{ ...css.qText, fontWeight: 600 }}>{result.monthlyQ}</span>
+                <div style={{ ...css.qRow, borderTop: "1px solid #333", marginTop: 4, paddingTop: 16 }}>
+                  <span style={{ ...css.qTag, color: "#fff" }}>MONTHLY</span>
+                  <span style={{ ...css.qText, color: "#fff", fontWeight: 600 }}>{result.monthlyQ}</span>
                 </div>
               </div>
             </div>
 
-            <div style={{ ...css.section, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <div style={css.crisisA}>
-                <div style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.1em", color: "#D4724A", marginBottom: 6 }}>A타입 · 과열형</div>
-                <div style={css.crisisText}>{result.crisisA}</div>
-              </div>
-              <div style={css.crisisB}>
-                <div style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.1em", color: "#5E3FA3", marginBottom: 6 }}>B타입 · 공허형</div>
-                <div style={css.crisisText}>{result.crisisB}</div>
+            <div style={css.block}>
+              <div style={css.blockLabel}>// 위기 유형</div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div style={css.crisisCard}>
+                  <div style={css.crisisTag}>A TYPE · 과열형</div>
+                  <div style={css.crisisText}>{result.crisisA}</div>
+                </div>
+                <div style={{ ...css.crisisCard, borderColor: "#7B5EA744" }}>
+                  <div style={{ ...css.crisisTag, color: "#A084DC" }}>B TYPE · 공허형</div>
+                  <div style={css.crisisText}>{result.crisisB}</div>
+                </div>
               </div>
             </div>
 
             {result.dataGaps?.length > 0 && (
-              <div style={{ ...css.section, background: "#F7F4EF" }}>
-                <div style={css.sectionTag}>정확도를 높이려면</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {result.dataGaps.map((g, i) => (
-                    <div key={i} style={{ fontSize: 12, color: "#6B6560", display: "flex", gap: 8 }}>
-                      <span style={{ color: "#B5AFA9", fontFamily: "monospace" }}>+</span>
-                      <span>{g}</span>
-                    </div>
-                  ))}
-                </div>
+              <div style={{ ...css.block, borderColor: "#1a1a1a" }}>
+                <div style={css.blockLabel}>// 정확도를 높이려면</div>
+                {result.dataGaps.map((g, i) => (
+                  <div key={i} style={{ display: "flex", padding: "5px 0" }}>
+                    <span style={{ color: "#444", marginRight: 10, fontFamily: "monospace" }}>+</span>
+                    <span style={{ color: "#555", fontSize: 13 }}>{g}</span>
+                  </div>
+                ))}
               </div>
             )}
 
-            <div style={{ padding: "20px 24px 28px", display: "flex", gap: 10, borderTop: "1px solid #DDD8D0" }}>
-              <button onClick={() => { setPhase("input"); setResult(null); setChecked({}); }} style={css.btnSecondary}>
-                처음으로
-              </button>
-              <button onClick={() => { setPhase("input"); setResult(null); setChecked({}); }} style={css.btnPrimary}>
-                정보 추가하고 재분석 →
-              </button>
+            <div style={{ display: "flex", gap: 10, paddingTop: 24 }}>
+              <button onClick={() => { setPhase("input"); setResult(null); setChecked({}); }} style={css.ctaBtnWhite}>처음으로</button>
+              <button onClick={() => { setPhase("input"); setResult(null); setChecked({}); }} style={css.ctaBtnBlack}>정보 추가하고 재분석 →</button>
             </div>
 
-            <div style={{ ...css.footer, borderTop: "1px solid #DDD8D0", padding: "16px 24px" }}>
-              <span style={css.footerName}>따도씨</span>
-              <span style={css.footerDot}>·</span>
-              <a href="mailto:ddadoci@gmail.com" style={css.footerLink}>ddadoci@gmail.com</a>
-              <span style={css.footerDot}>·</span>
-              <a href="https://instagram.com/dododokang" target="_blank" rel="noopener noreferrer" style={css.footerLink}>@dododokang</a>
-            </div>
+            <Footer />
           </div>
         </div>
       </>
@@ -193,25 +176,33 @@ export default function App() {
   return (
     <>
       <Head>
-        <title>나만의 위기 신호 체크리스트 만들기</title>
+        <title>checkmywarning — 당신이 무너지기 전에 신호가 온다</title>
         <meta name="description" content="자신에 대한 정보를 입력하면 AI가 당신 전용 위기 신호 자기점검 체계를 만들어드립니다." />
-        <meta property="og:title" content="나만의 위기 신호 체크리스트" />
-        <meta property="og:description" content="검사 결과, 주변 묘사, 자기 관찰 — 아는 것을 입력하면 AI가 분석합니다." />
+        <meta property="og:title" content="당신이 무너지기 전에 신호가 온다. 당신만 모를 뿐." />
+        <meta property="og:description" content="checkmywarning — 나만의 위기 신호 체크리스트" />
       </Head>
-      <style>{keyframes}</style>
-      <div style={css.page}>
-        <div style={css.inputCard}>
-          <div style={css.titleArea}>
-            <div style={css.titleTag}>Self-Architecture · Warning Signal Generator</div>
-            <h1 style={css.title}>나만의 위기 신호<br />체크리스트 만들기</h1>
-            <p style={css.titleSub}>
-              자신에 대해 알고 있는 것을 자유롭게 입력하세요.<br />
-              검사 결과, 주변 묘사, 자기 관찰, 패턴 기록 — 형식 없이.
-            </p>
-          </div>
+      <style>{globalStyle}</style>
+      <div style={css.inputPage}>
+        <Nav />
 
+        <div style={css.hero}>
+          <div style={css.heroEyebrow}>WARNING SIGNAL GENERATOR</div>
+          <h1 style={css.heroTitle}>
+            당신이 무너지기 전에<br />
+            <span style={css.heroAccent}>신호가 온다.</span>
+          </h1>
+          <p style={css.heroSub}>당신만 모를 뿐.</p>
+          <div style={css.heroDivider} />
+          <p style={css.heroDesc}>
+            자신에 대해 아는 것을 입력하면 — AI가 당신 전용 위기 신호 체계를 만듭니다.<br />
+            번아웃이 오기 전에, 스스로 먼저 알아채세요.
+          </p>
+        </div>
+
+        <div style={css.inputSection}>
+          <div style={css.inputLabel}>// 자신에 대해 아는 것을 입력하세요</div>
           <div
-            style={{ ...css.dropZone, borderColor: dragOver ? "#1C1916" : "#DDD8D0", background: dragOver ? "#F0EDE8" : "#F7F4EF" }}
+            style={{ ...css.dropZone, borderColor: dragOver ? "#fff" : "#222" }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
@@ -220,29 +211,25 @@ export default function App() {
               ref={textareaRef}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={"자신에 대해 아는 것을 자유롭게 써주세요.\n\n검사 결과, 주변의 말, 스스로 관찰한 패턴, 반복되는 어려움, 사주나 별자리 정보까지 — 형식 없이, 아는 만큼만."}
+              placeholder={"검사 결과, 주변의 말, 스스로 관찰한 패턴, 반복되는 어려움\n사주나 별자리 정보까지 — 형식 없이, 아는 만큼만."}
               style={css.textarea}
             />
             {uploadedFiles.length > 0 && (
               <div style={css.fileList}>
-                {uploadedFiles.map((f, i) => (
-                  <div key={i} style={css.fileItem}>
-                    <span>📎</span><span>{f}</span>
-                  </div>
-                ))}
+                {uploadedFiles.map((f, i) => <div key={i} style={css.fileItem}>📎 {f}</div>)}
               </div>
             )}
             <div style={css.dropHint}>
-              <span>txt, md 파일을 드래그하거나 </span>
+              txt, md 파일 드래그 또는{" "}
               <span onClick={() => fileInputRef.current?.click()} style={css.uploadLink}>클릭해서 업로드</span>
               <input ref={fileInputRef} type="file" accept=".txt,.md" multiple style={{ display: "none" }}
                 onChange={(e) => handleFiles(e.target.files)} />
             </div>
           </div>
 
-          <div style={css.infoRow}>
-            {["MBTI / DISC", "TCI / NEO-PI", "에니어그램", "CliftonStrengths", "사주 만세력", "별자리 / 태양·달·상승", "주변 묘사", "번아웃 경험", "자기 관찰 메모"].map(t => (
-              <div key={t} style={css.infoChip}>{t}</div>
+          <div style={css.chipRow}>
+            {["MBTI / DISC", "TCI / NEO-PI", "에니어그램", "CliftonStrengths", "사주 만세력", "별자리", "주변 묘사", "번아웃 경험", "자기 관찰"].map(t => (
+              <div key={t} style={css.chip}>{t}</div>
             ))}
           </div>
 
@@ -251,49 +238,76 @@ export default function App() {
           <button
             onClick={generate}
             disabled={!inputText.trim()}
-            style={{ ...css.btnPrimary, width: "100%", padding: "14px", fontSize: 14, opacity: inputText.trim() ? 1 : 0.4, cursor: inputText.trim() ? "pointer" : "not-allowed" }}
+            style={{ ...css.generateBtn, opacity: inputText.trim() ? 1 : 0.3, cursor: inputText.trim() ? "pointer" : "not-allowed" }}
           >
-            위기 신호 체크리스트 만들기 →
+            위기 신호 체크리스트 생성 →
           </button>
-
-          <p style={css.noteText}>입력한 내용은 저장되지 않아요 · 분석은 30초 내외</p>
-
-          <div style={css.footer}>
-            <span style={css.footerName}>따도씨</span>
-            <span style={css.footerDot}>·</span>
-            <a href="mailto:ddadoci@gmail.com" style={css.footerLink}>ddadoci@gmail.com</a>
-            <span style={css.footerDot}>·</span>
-            <a href="https://instagram.com/dododokang" target="_blank" rel="noopener noreferrer" style={css.footerLink}>@dododokang</a>
-          </div>
+          <p style={css.noteText}>입력 내용은 저장되지 않음 · 분석 30초 내외</p>
         </div>
+
+        <div style={css.manifesto}>
+          <div style={css.manifestoLine}>"번아웃은 갑자기 오지 않는다."</div>
+          <div style={css.manifestoLine}>"항상 신호가 먼저 온다."</div>
+          <div style={css.manifestoLine}>"문제는 그 신호가 사람마다 다르다는 것."</div>
+          <div style={css.manifestoLineAccent}>"당신의 신호를 당신이 먼저 알아야 한다."</div>
+        </div>
+
+        <Footer />
       </div>
     </>
   );
 }
 
-function SignalBlock({ id, badge, title, color, bg, border, items, checked, onToggle }) {
+function Nav() {
+  return (
+    <nav style={navCss.nav}>
+      <Link href="/" style={navCss.logo}>checkmywarning</Link>
+      <div style={navCss.links}>
+        <Link href="/blog/what-is-warning-signal" style={navCss.link}>아티클</Link>
+        <Link href="/about" style={navCss.link}>소개</Link>
+        <Link href="/" style={navCss.cta}>체크리스트 만들기</Link>
+      </div>
+    </nav>
+  );
+}
+
+function Footer() {
+  return (
+    <footer style={footerCss.footer}>
+      <div style={footerCss.left}>
+        <span style={footerCss.logo}>checkmywarning</span>
+        <span style={footerCss.copy}>© 2025 by 따도씨</span>
+      </div>
+      <div style={footerCss.right}>
+        <a href="mailto:ddadoci@gmail.com" style={footerCss.link}>ddadoci@gmail.com</a>
+        <a href="https://instagram.com/dododokang" target="_blank" rel="noopener noreferrer" style={footerCss.link}>@dododokang</a>
+        <Link href="/privacy" style={footerCss.link}>개인정보처리방침</Link>
+      </div>
+    </footer>
+  );
+}
+
+function SignalBlock({ id, tag, label, accent, items, checked, onToggle }) {
   if (!items?.length) return null;
   return (
-    <div style={{ borderTop: "1px solid #DDD8D0", padding: "18px 24px", background: "#F7F4EF" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <span style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.1em", padding: "3px 10px", borderRadius: 99, background: bg, color, border: `1px solid ${border}` }}>
-          {badge}
-        </span>
-        <span style={{ fontSize: 12, color: "#6B6560" }}>{title}</span>
+    <div style={{ ...css.block, borderColor: accent + "33", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: accent, letterSpacing: "0.14em", border: `1px solid ${accent}44`, padding: "3px 10px", borderRadius: 2 }}>{tag}</span>
+        <span style={{ fontSize: 12, color: "#555" }}>{label}</span>
       </div>
-      <div style={{ background: "white", border: "1px solid #DDD8D0", borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {items.map((item, i) => {
           const key = `${id}-${i}`;
           const on = !!checked[key];
           return (
             <div key={key} onClick={() => onToggle(key)}
-              style={{ display: "flex", gap: 12, padding: "12px 16px", borderBottom: i < items.length - 1 ? "1px solid #F0EDE8" : "none", cursor: "pointer", background: on ? "#F5F3EF" : "white", transition: "background 0.12s", userSelect: "none", alignItems: "flex-start" }}>
-              <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${on ? "transparent" : "#DDD8D0"}`, background: on ? color : "white", flexShrink: 0, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.12s" }}>
-                {on && <svg width="9" height="7" viewBox="0 0 9 7"><path d="M1 3.5l2.5 2.5L8 1" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              style={{ display: "flex", gap: 14, padding: "12px 16px", borderRadius: 3, border: `1px solid ${on ? accent + "44" : "#1a1a1a"}`, cursor: "pointer", background: on ? "#111" : "transparent", transition: "all 0.1s", userSelect: "none", alignItems: "flex-start" }}>
+              <div style={{ width: 14, height: 14, borderRadius: 2, border: `1px solid ${on ? accent : "#333"}`, background: on ? accent : "transparent", flexShrink: 0, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.1s" }}>
+                {on && <svg width="8" height="6" viewBox="0 0 8 6"><path d="M1 3l2 2 4-4" stroke="#000" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
               </div>
               <div>
-                <div style={{ fontSize: 13, color: on ? "#6B6560" : "#1C1916", lineHeight: 1.5 }}>{item.signal}</div>
-                <div style={{ fontSize: 11, color: "#B5AFA9", marginTop: 3, fontFamily: "monospace", lineHeight: 1.4 }}>{item.basis}</div>
+                <div style={{ fontSize: 13, color: on ? "#555" : "#bbb", lineHeight: 1.6, transition: "color 0.1s" }}>{item.signal}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", marginTop: 3, lineHeight: 1.4 }}>{item.basis}</div>
               </div>
             </div>
           );
@@ -303,64 +317,89 @@ function SignalBlock({ id, badge, title, color, bg, border, items, checked, onTo
   );
 }
 
-const keyframes = `
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600;700&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  @keyframes pulse { 0%,100%{opacity:0.2;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }
-  button:hover { opacity: 0.82; }
-  textarea::placeholder { color: #B5AFA9; }
+const globalStyle = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Noto+Serif+KR:wght@300;400;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0a0a0a; }
+  a { text-decoration: none; color: inherit; }
   a:hover { opacity: 0.7; }
+  button:hover { opacity: 0.8; }
+  textarea::placeholder { color: #333; }
+  @keyframes loadbar { 0% { width: 0% } 100% { width: 85% } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
+const navCss = {
+  nav: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", borderBottom: "1px solid #1a1a1a", position: "sticky", top: 0, background: "#0a0a0a", zIndex: 100 },
+  logo: { fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 500, color: "#fff", letterSpacing: "0.04em" },
+  links: { display: "flex", alignItems: "center", gap: 28 },
+  link: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#555", letterSpacing: "0.06em" },
+  cta: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#000", background: "#fff", padding: "6px 14px", borderRadius: 2, letterSpacing: "0.04em" },
+};
+
+const footerCss = {
+  footer: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, padding: "28px 32px", borderTop: "1px solid #1a1a1a", marginTop: 80 },
+  left: { display: "flex", flexDirection: "column", gap: 4 },
+  logo: { fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#fff", letterSpacing: "0.06em" },
+  copy: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333" },
+  right: { display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" },
+  link: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", letterSpacing: "0.04em" },
+};
+
 const css = {
-  page: { minHeight: "100vh", background: "#F7F4EF", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "32px 16px 64px", fontFamily: "'Georgia', 'Noto Serif KR', serif" },
-  inputCard: { width: "100%", maxWidth: 560, display: "flex", flexDirection: "column", gap: 20 },
-  resultCard: { width: "100%", maxWidth: 540, background: "#F7F4EF", border: "1px solid #DDD8D0", borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 32px rgba(28,25,22,0.07)" },
-  titleArea: { padding: 0 },
-  titleTag: { fontFamily: "monospace", fontSize: 10, letterSpacing: "0.14em", color: "#B5AFA9", textTransform: "uppercase", marginBottom: 14 },
-  title: { fontSize: 28, fontWeight: 700, color: "#1C1916", lineHeight: 1.25, marginBottom: 10 },
-  titleSub: { fontSize: 13, color: "#6B6560", lineHeight: 1.7 },
-  dropZone: { border: "1.5px dashed", borderRadius: 12, overflow: "hidden", transition: "all 0.15s" },
-  textarea: { width: "100%", minHeight: 200, background: "transparent", border: "none", outline: "none", padding: "18px 20px 10px", fontSize: 13, color: "#1C1916", lineHeight: 1.75, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" },
-  fileList: { padding: "0 20px 8px", display: "flex", flexDirection: "column", gap: 4 },
-  fileItem: { fontSize: 11, color: "#6B6560", fontFamily: "monospace", display: "flex", gap: 6, alignItems: "center" },
-  dropHint: { padding: "10px 20px 14px", fontSize: 11, color: "#B5AFA9", fontFamily: "monospace", letterSpacing: "0.05em", borderTop: "1px solid #EDE9E3" },
-  uploadLink: { color: "#6B6560", textDecoration: "underline", cursor: "pointer" },
-  infoRow: { display: "flex", flexWrap: "wrap", gap: 6 },
-  infoChip: { background: "white", border: "1px solid #DDD8D0", borderRadius: 99, padding: "4px 12px", fontSize: 11, color: "#6B6560", fontFamily: "monospace" },
-  errorMsg: { background: "#F9ECEC", border: "1px solid #B8404033", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#B84040" },
-  noteText: { textAlign: "center", fontFamily: "monospace", fontSize: 10, color: "#B5AFA9", letterSpacing: "0.06em" },
-  footer: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, paddingTop: 4 },
-  footerName: { fontFamily: "monospace", fontSize: 11, color: "#B5AFA9", letterSpacing: "0.06em" },
-  footerDot: { color: "#DDD8D0", fontSize: 10 },
-  footerLink: { fontFamily: "monospace", fontSize: 11, color: "#B5AFA9", textDecoration: "none", letterSpacing: "0.04em" },
-  header: { background: "#1C1916", padding: "28px 24px 24px" },
-  headerTag: { fontFamily: "monospace", fontSize: 10, letterSpacing: "0.14em", color: "#E8C84A", marginBottom: 10 },
-  headerTitle: { fontSize: 16, fontWeight: 600, color: "#F7F4EF", lineHeight: 1.4 },
-  statusBar: { background: "white", borderBottom: "1px solid #DDD8D0", padding: "16px 24px", display: "flex", alignItems: "center", gap: 16 },
-  statusLabel: { fontFamily: "monospace", fontSize: 10, color: "#B5AFA9", letterSpacing: "0.1em", marginBottom: 4 },
-  statusScore: { fontSize: 30, fontWeight: 700, fontFamily: "monospace", lineHeight: 1 },
-  statusDesc: { fontSize: 11, color: "#6B6560", marginTop: 3 },
-  meterWrap: { flex: 1 },
-  meterTrack: { height: 4, background: "#F0EDE8", borderRadius: 99, overflow: "hidden" },
-  meterFill: { height: "100%", borderRadius: 99, transition: "width 0.5s ease" },
-  resetSmall: { fontFamily: "monospace", fontSize: 10, color: "#B5AFA9", background: "none", border: "1px solid #DDD8D0", borderRadius: 6, padding: "5px 10px", cursor: "pointer", letterSpacing: "0.06em", flexShrink: 0 },
-  section: { padding: "18px 24px", borderTop: "1px solid #DDD8D0", background: "#F7F4EF" },
-  sectionTag: { fontFamily: "monospace", fontSize: 10, letterSpacing: "0.12em", color: "#B5AFA9", textTransform: "uppercase", marginBottom: 12 },
-  strengthItem: { background: "white", border: "1px solid #DDD8D0", borderRadius: 8, padding: "10px 14px" },
-  strengthLabel: { fontSize: 13, fontWeight: 600, color: "#1C1916", marginBottom: 3 },
-  strengthBasis: { fontSize: 11, color: "#B5AFA9", fontFamily: "monospace", lineHeight: 1.4 },
-  qItem: { background: "white", border: "1px solid #DDD8D0", borderRadius: 8, padding: "11px 14px", display: "flex", gap: 10, alignItems: "flex-start" },
-  qNum: { fontFamily: "monospace", fontSize: 11, color: "#B5AFA9", flexShrink: 0, width: 20, marginTop: 1 },
-  qText: { fontSize: 13, color: "#1C1916", lineHeight: 1.55 },
-  crisisA: { flex: 1, minWidth: 180, background: "#FBF0EB", border: "1px solid #D4724A33", borderRadius: 10, padding: "13px 15px" },
-  crisisB: { flex: 1, minWidth: 180, background: "#F2EEF8", border: "1px solid #7B5EA733", borderRadius: 10, padding: "13px 15px" },
-  crisisText: { fontSize: 12, lineHeight: 1.6, color: "#1C1916" },
-  btnPrimary: { background: "#1C1916", color: "#F7F4EF", border: "none", borderRadius: 8, padding: "11px 20px", fontSize: 13, fontFamily: "inherit", cursor: "pointer", fontWeight: 600, letterSpacing: "0.02em" },
-  btnSecondary: { background: "transparent", color: "#6B6560", border: "1px solid #DDD8D0", borderRadius: 8, padding: "11px 16px", fontSize: 12, fontFamily: "monospace", cursor: "pointer", letterSpacing: "0.07em" },
-  loadCard: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 },
-  loadDots: { display: "flex", gap: 8 },
-  loadDot: { width: 8, height: 8, borderRadius: "50%", background: "#1C1916", animation: "pulse 1.2s ease-in-out infinite" },
-  loadText: { fontFamily: "monospace", fontSize: 13, color: "#6B6560", letterSpacing: "0.08em" },
-  loadSub: { fontFamily: "monospace", fontSize: 11, color: "#B5AFA9", letterSpacing: "0.06em" },
+  inputPage: { minHeight: "100vh", background: "#0a0a0a", color: "#fff", fontFamily: "'Noto Serif KR', Georgia, serif" },
+  hero: { padding: "80px 32px 64px", maxWidth: 760, margin: "0 auto", animation: "fadeUp 0.6s ease both" },
+  heroEyebrow: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", letterSpacing: "0.2em", marginBottom: 24 },
+  heroTitle: { fontSize: "clamp(36px, 6vw, 72px)", fontWeight: 700, lineHeight: 1.15, color: "#fff", marginBottom: 8 },
+  heroAccent: { color: "#fff", borderBottom: "3px solid #fff" },
+  heroSub: { fontSize: "clamp(18px, 3vw, 28px)", color: "#333", fontStyle: "italic", marginBottom: 32 },
+  heroDivider: { width: 40, height: 1, background: "#222", marginBottom: 24 },
+  heroDesc: { fontSize: 14, lineHeight: 1.9, color: "#555", maxWidth: 520 },
+  inputSection: { maxWidth: 680, margin: "0 auto", padding: "0 32px 40px" },
+  inputLabel: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#333", letterSpacing: "0.1em", marginBottom: 16 },
+  dropZone: { border: "1px solid", borderRadius: 4, overflow: "hidden", transition: "border-color 0.15s", background: "#0d0d0d" },
+  textarea: { width: "100%", minHeight: 200, background: "transparent", border: "none", outline: "none", padding: "20px 22px 12px", fontSize: 13, color: "#bbb", lineHeight: 1.8, resize: "vertical", fontFamily: "'Noto Serif KR', Georgia, serif", boxSizing: "border-box" },
+  fileList: { padding: "0 22px 8px", display: "flex", flexDirection: "column", gap: 4 },
+  fileItem: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#444" },
+  dropHint: { padding: "10px 22px 14px", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", letterSpacing: "0.06em", borderTop: "1px solid #1a1a1a" },
+  uploadLink: { color: "#666", textDecoration: "underline", cursor: "pointer" },
+  chipRow: { display: "flex", flexWrap: "wrap", gap: 6, margin: "16px 0" },
+  chip: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", border: "1px solid #1a1a1a", borderRadius: 2, padding: "4px 10px", letterSpacing: "0.06em" },
+  errorMsg: { background: "#110a0a", border: "1px solid #FF444433", borderRadius: 4, padding: "10px 14px", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#FF4444", marginBottom: 12 },
+  generateBtn: { width: "100%", background: "#fff", color: "#000", border: "none", borderRadius: 2, padding: "16px", fontSize: 13, fontFamily: "'DM Mono', monospace", fontWeight: 500, letterSpacing: "0.06em", transition: "opacity 0.15s" },
+  noteText: { textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#222", marginTop: 12, letterSpacing: "0.06em" },
+  manifesto: { maxWidth: 680, margin: "0 auto", padding: "64px 32px", borderTop: "1px solid #1a1a1a", display: "flex", flexDirection: "column", gap: 8 },
+  manifestoLine: { fontFamily: "'DM Serif Display', Georgia, serif", fontSize: "clamp(18px, 3vw, 24px)", color: "#2a2a2a", lineHeight: 1.5 },
+  manifestoLineAccent: { fontFamily: "'DM Serif Display', Georgia, serif", fontSize: "clamp(18px, 3vw, 24px)", color: "#fff", lineHeight: 1.5, marginTop: 8 },
+  loadPage: { minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" },
+  loadInner: { textAlign: "center", width: 300 },
+  loadBar: { height: 1, background: "#1a1a1a", borderRadius: 1, overflow: "hidden", marginBottom: 32 },
+  loadBarFill: { height: "100%", background: "#fff", animation: "loadbar 3s ease forwards" },
+  loadText: { fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#555", letterSpacing: "0.1em", marginBottom: 8 },
+  loadSub: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", letterSpacing: "0.08em" },
+  resultPage: { minHeight: "100vh", background: "#0a0a0a", color: "#fff", fontFamily: "'Noto Serif KR', Georgia, serif" },
+  resultWrap: { maxWidth: 680, margin: "0 auto", padding: "0 32px 40px" },
+  resultHero: { padding: "48px 0 40px", borderBottom: "1px solid #1a1a1a", marginBottom: 32 },
+  resultHeroTag: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", letterSpacing: "0.16em", marginBottom: 16 },
+  resultHeroTitle: { fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 600, color: "#fff", lineHeight: 1.4, marginBottom: 28 },
+  resultHeroScore: { display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 },
+  scoreNum: { fontFamily: "'DM Mono', monospace", fontSize: 56, fontWeight: 500, lineHeight: 1 },
+  scoreLabel: { fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.1em" },
+  scoreMeterWrap: { display: "flex", alignItems: "center", gap: 16 },
+  scoreMeter: { flex: 1, height: 1, background: "#1a1a1a", overflow: "hidden" },
+  scoreMeterFill: { height: "100%", transition: "width 0.5s ease" },
+  resetBtn: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#333", background: "none", border: "1px solid #1a1a1a", borderRadius: 2, padding: "4px 10px", cursor: "pointer", letterSpacing: "0.1em", flexShrink: 0 },
+  block: { border: "1px solid #1a1a1a", borderRadius: 4, padding: "24px", marginBottom: 16 },
+  blockLabel: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", letterSpacing: "0.12em", marginBottom: 16 },
+  strengthCard: { background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 3, padding: "12px 16px" },
+  strengthName: { fontSize: 13, fontWeight: 600, color: "#aaa", marginBottom: 4 },
+  strengthBasis: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", lineHeight: 1.5 },
+  qRow: { display: "flex", gap: 16, padding: "11px 0", borderBottom: "1px solid #1a1a1a", alignItems: "flex-start" },
+  qTag: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#333", flexShrink: 0, width: 64, letterSpacing: "0.08em", paddingTop: 2 },
+  qText: { fontSize: 13, color: "#666", lineHeight: 1.6 },
+  crisisCard: { flex: 1, minWidth: 200, background: "#0d0d0d", border: "1px solid #FF8C4233", borderRadius: 3, padding: "16px" },
+  crisisTag: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#FF8C42", letterSpacing: "0.12em", marginBottom: 8 },
+  crisisText: { fontSize: 12, color: "#555", lineHeight: 1.7 },
+  ctaBtnWhite: { flex: 1, background: "transparent", color: "#333", border: "1px solid #1a1a1a", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", letterSpacing: "0.06em" },
+  ctaBtnBlack: { flex: 2, background: "#fff", color: "#000", border: "none", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", fontWeight: 500, letterSpacing: "0.04em" },
 };
