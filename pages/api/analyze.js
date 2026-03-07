@@ -81,25 +81,51 @@ ${input}
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 2000,
+        max_tokens: 1500,
+        stream: true,
         system: SYSTEM,
         messages: [{ role: "user", content: userContent }],
       }),
     });
 
-    const data = await response.json();
-
-    if (data.error) {
-      console.error("Anthropic API error:", data.error);
-      return res.status(500).json({ error: `API 오류: ${data.error.message || JSON.stringify(data.error)}` });
+    if (!response.ok) {
+      const errData = await response.json();
+      return res.status(500).json({ error: `API 오류: ${errData.error?.message || JSON.stringify(errData.error)}` });
     }
 
-    const text = data.content?.[0]?.text || "";
-    const clean = text.replace(/```json\n?|```/g, "").trim();
-    const parsed = JSON.parse(clean);
-    res.status(200).json(parsed);
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Transfer-Encoding", "chunked");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const event = JSON.parse(data);
+          if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+            res.write(event.delta.text);
+          }
+        } catch {}
+      }
+    }
+
+    res.end();
   } catch (e) {
     console.error("Analyze error:", e);
-    res.status(500).json({ error: "분석 중 오류가 발생했습니다." });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "분석 중 오류가 발생했습니다." });
+    } else {
+      res.end();
+    }
   }
 }
