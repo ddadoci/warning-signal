@@ -88,6 +88,8 @@ export default function App() {
     if (!inputText.trim() && uploadedImages.length === 0) return;
     setPhase("loading");
     setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -96,14 +98,20 @@ export default function App() {
           input: inputText,
           images: uploadedImages.length > 0 ? uploadedImages : undefined,
         }),
+        signal: controller.signal,
       });
       const parsed = await res.json();
       if (parsed.error) throw new Error(parsed.error);
       setResult(parsed);
       setPhase("result");
     } catch (e) {
-      setError(e.message || "분석 중 오류가 발생했습니다. 다시 시도해주세요.");
+      const msg = e.name === "AbortError"
+        ? "분석 시간이 초과되었습니다. 다시 시도해주세요."
+        : e.message || "분석 중 오류가 발생했습니다. 다시 시도해주세요.";
+      setError(msg);
       setPhase("input");
+    } finally {
+      clearTimeout(timeout);
     }
   };
 
