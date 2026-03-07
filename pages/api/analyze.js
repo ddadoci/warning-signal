@@ -1,16 +1,13 @@
 export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "20mb",
-    },
-  },
+  runtime: "edge",
 };
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
+export default async function handler(req) {
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
-  const { input, images } = req.body;
-  if (!input?.trim() && (!images || images.length === 0)) return res.status(400).json({ error: "입력값 없음" });
+  const { input, images } = await req.json();
+  if (!input?.trim() && (!images || images.length === 0))
+    return new Response(JSON.stringify({ error: "입력값 없음" }), { status: 400 });
 
   const SYSTEM = `당신은 자기 구조 분석 전문가입니다.
 사용자가 자신에 대해 입력한 모든 종류의 정보(검사 결과, 주변 묘사, 자기 관찰, 패턴 기록 등)를 종합 분석해서 그 사람 전용 위기 신호 자기점검 체계를 만들어주세요.
@@ -53,17 +50,12 @@ ${input}
 
 각 stage는 최소 4개 이상. 강점은 3~5개.`;
 
-  // Build message content: images first, then text
   let userContent;
   if (images && images.length > 0) {
     userContent = [
       ...images.map((img) => ({
         type: "image",
-        source: {
-          type: "base64",
-          media_type: img.mimeType,
-          data: img.data,
-        },
+        source: { type: "base64", media_type: img.mimeType, data: img.data },
       })),
       { type: "text", text: USER },
     ];
@@ -71,61 +63,58 @@ ${input}
     userContent = USER;
   }
 
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4096,
-        stream: true,
-        system: SYSTEM,
-        messages: [{ role: "user", content: userContent }],
-      }),
-    });
+  const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      stream: true,
+      system: SYSTEM,
+      messages: [{ role: "user", content: userContent }],
+    }),
+  });
 
-    if (!response.ok) {
-      const errData = await response.json();
-      return res.status(500).json({ error: `API 오류: ${errData.error?.message || JSON.stringify(errData.error)}` });
-    }
-
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Transfer-Encoding", "chunked");
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split("\n");
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") continue;
-        try {
-          const event = JSON.parse(data);
-          if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
-            res.write(event.delta.text);
-          }
-        } catch {}
-      }
-    }
-
-    res.end();
-  } catch (e) {
-    console.error("Analyze error:", e);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "분석 중 오류가 발생했습니다." });
-    } else {
-      res.end();
-    }
+  if (!anthropicRes.ok) {
+    const errData = await anthropicRes.json();
+    return new Response(
+      JSON.stringify({ error: `API 오류: ${errData.error?.message || JSON.stringify(errData.error)}` }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const reader = anthropicRes.body.getReader();
+      const decoder = new TextDecoder();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          for (const line of chunk.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const event = JSON.parse(data);
+              if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+                controller.enqueue(new TextEncoder().encode(event.delta.text));
+              }
+            } catch {}
+          }
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 }
