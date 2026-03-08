@@ -2,6 +2,82 @@ export const config = {
   runtime: "edge",
 };
 
+const TOOL = {
+  name: "generate_warning_signal",
+  description: "사용자 입력 데이터를 분석해 그 사람 전용 위기 신호 자기점검 체계를 생성합니다.",
+  input_schema: {
+    type: "object",
+    properties: {
+      identity: { type: "string", description: "한 줄 정체성 정의 (입력 데이터 기반)" },
+      strengths: {
+        type: "array",
+        description: "강점 3~5개",
+        items: {
+          type: "object",
+          properties: {
+            label: { type: "string" },
+            basis: { type: "string", description: "근거가 된 입력 내용" },
+          },
+          required: ["label", "basis"],
+        },
+      },
+      stage1: {
+        type: "array",
+        description: "1단계 위기 신호 최소 4개 (초기 경고, 구체적 행동/상황)",
+        items: {
+          type: "object",
+          properties: {
+            signal: { type: "string" },
+            basis: { type: "string" },
+          },
+          required: ["signal", "basis"],
+        },
+      },
+      stage2: {
+        type: "array",
+        description: "2단계 위기 신호 최소 4개 (심화 경고)",
+        items: {
+          type: "object",
+          properties: {
+            signal: { type: "string" },
+            basis: { type: "string" },
+          },
+          required: ["signal", "basis"],
+        },
+      },
+      stage3: {
+        type: "array",
+        description: "3단계 위기 신호 최소 4개 (임계점)",
+        items: {
+          type: "object",
+          properties: {
+            signal: { type: "string" },
+            basis: { type: "string" },
+          },
+          required: ["signal", "basis"],
+        },
+      },
+      weeklyQ: {
+        type: "array",
+        description: "주간 점검 질문 3개 (이 사람 패턴 기반)",
+        items: { type: "string" },
+      },
+      monthlyQ: { type: "string", description: "월간 점검 질문 1개" },
+      crisisA: { type: "string", description: "이 사람의 과열형 위기 패턴 (1~2줄)" },
+      crisisB: { type: "string", description: "이 사람의 공허형 위기 패턴 (1~2줄)" },
+      dataGaps: {
+        type: "array",
+        description: "분석에 더 있으면 좋을 정보 2~3가지",
+        items: { type: "string" },
+      },
+    },
+    required: [
+      "identity", "strengths", "stage1", "stage2", "stage3",
+      "weeklyQ", "monthlyQ", "crisisA", "crisisB", "dataGaps",
+    ],
+  },
+};
+
 export default async function handler(req) {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
@@ -16,8 +92,7 @@ export default async function handler(req) {
 - 위로 문장 금지. 구조 분석만.
 - 각 신호는 입력된 데이터 중 하나 이상을 명시적 근거로 사용
 - 데이터 없는 영역은 있는 것들로 교차 추론
-- 신호는 행동/관계/내면 영역 골고루
-- 반드시 순수 JSON만 반환. 응답의 첫 글자는 반드시 { 이어야 함. 코드블록(\`\`\`), 설명 텍스트, 주석 일체 금지.`;
+- 신호는 행동/관계/내면 영역 골고루`;
 
   const USER = `다음은 사용자가 자신에 대해 입력한 정보입니다:
 
@@ -25,30 +100,7 @@ export default async function handler(req) {
 ${input}
 ---
 
-아래 JSON 구조로 이 사람 전용 위기 신호 체계를 만들어주세요:
-
-{
-  "identity": "한 줄 정체성 정의 (입력 데이터 기반)",
-  "strengths": [
-    {"label": "강점명", "basis": "근거가 된 입력 내용"}
-  ],
-  "stage1": [
-    {"signal": "신호 내용 (구체적 행동/상황으로)", "basis": "근거"}
-  ],
-  "stage2": [
-    {"signal": "신호 내용", "basis": "근거"}
-  ],
-  "stage3": [
-    {"signal": "신호 내용", "basis": "근거"}
-  ],
-  "weeklyQ": ["주간 점검 질문 3개 (이 사람 패턴 기반)"],
-  "monthlyQ": "월간 점검 질문 1개",
-  "crisisA": "이 사람의 과열형 위기 패턴 (1~2줄)",
-  "crisisB": "이 사람의 공허형 위기 패턴 (1~2줄)",
-  "dataGaps": ["분석에 더 있으면 좋을 정보 2~3가지"]
-}
-
-각 stage는 최소 4개 이상. 강점은 3~5개.`;
+generate_warning_signal 도구를 사용해 이 사람 전용 위기 신호 체계를 만들어주세요. 각 stage는 최소 4개 이상, 강점은 3~5개.`;
 
   let userContent;
   if (images && images.length > 0) {
@@ -75,6 +127,8 @@ ${input}
       max_tokens: 4096,
       stream: true,
       system: SYSTEM,
+      tools: [TOOL],
+      tool_choice: { type: "tool", name: "generate_warning_signal" },
       messages: [{ role: "user", content: userContent }],
     }),
   });
@@ -87,6 +141,7 @@ ${input}
     );
   }
 
+  // Stream input_json_delta fragments from tool_use
   const stream = new ReadableStream({
     async start(controller) {
       const reader = anthropicRes.body.getReader();
@@ -102,8 +157,11 @@ ${input}
             if (data === "[DONE]") continue;
             try {
               const event = JSON.parse(data);
-              if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
-                controller.enqueue(new TextEncoder().encode(event.delta.text));
+              if (
+                event.type === "content_block_delta" &&
+                event.delta?.type === "input_json_delta"
+              ) {
+                controller.enqueue(new TextEncoder().encode(event.delta.partial_json));
               }
             } catch {}
           }
