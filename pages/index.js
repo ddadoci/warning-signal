@@ -115,21 +115,11 @@ export default function App() {
 
       fullText += decoder.decode(); // flush buffered bytes
 
-      // Strip markdown code blocks if present
-      let jsonStr = fullText.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "");
-
-      // Find outermost { ... }
-      const start = jsonStr.indexOf("{");
-      const end = jsonStr.lastIndexOf("}");
-      if (start === -1 || end === -1 || end <= start)
-        throw new Error(`JSON 없음. 응답: ${fullText.slice(0, 120)}`);
-      jsonStr = jsonStr.slice(start, end + 1);
-
       let parsed;
       try {
-        parsed = JSON.parse(jsonStr);
+        parsed = JSON.parse(fullText.trim());
       } catch (e) {
-        throw new Error(`파싱 오류: ${e.message} | 추출된 텍스트 시작: ${jsonStr.slice(0, 120)}`);
+        throw new Error(`파싱 오류: ${e.message} | 응답: ${fullText.slice(0, 120)}`);
       }
       setResult(parsed);
       setPhase("result");
