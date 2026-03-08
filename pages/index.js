@@ -12,19 +12,37 @@ export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]); // { id, label }
   const [uploadedImages, setUploadedImages] = useState([]); // { name, data, mimeType }
   const [showFloatScore, setShowFloatScore] = useState(false);
+  const [loadMsgIdx, setLoadMsgIdx] = useState(0);
   const textareaRef = useRef();
   const fileInputRef = useRef();
   const heroRef = useRef();
   const checklistRef = useRef();
 
+  const loadMessages = [
+    "당신의 번아웃 신호 체계를 분석 중입니다.",
+    "입력한 데이터들은 저장/보관되지 않습니다.",
+    "몇 초 뒤면 당신의 삶을 바꿀 신호체계가 완성됩니다.",
+  ];
+
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const interval = setInterval(() => {
+      setLoadMsgIdx((i) => (i + 1) % loadMessages.length);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [phase]);
+
   useEffect(() => {
     if (phase !== "result") { setShowFloatScore(false); return; }
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowFloatScore(!entry.isIntersecting),
-      { threshold: 0, rootMargin: "-60px 0px 0px 0px" }
-    );
-    if (heroRef.current) observer.observe(heroRef.current);
-    return () => observer.disconnect();
+    const handleScroll = () => {
+      if (heroRef.current) {
+        const rect = heroRef.current.getBoundingClientRect();
+        setShowFloatScore(rect.bottom < 56);
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [phase]);
 
   const handleFiles = useCallback((files) => {
@@ -150,9 +168,8 @@ export default function App() {
       <style>{globalStyle}</style>
       <div style={css.loadPage}>
         <div style={css.loadInner}>
-          <div style={css.loadBar}><div style={css.loadBarFill} /></div>
-          <p style={css.loadText}>당신의 패턴을 해독하는 중</p>
-          <p style={css.loadSub}>교차 분석 · 신호 도출 · 체계 설계</p>
+          <div style={css.spinner} />
+          <p style={css.loadText} key={loadMsgIdx}>{loadMessages[loadMsgIdx]}</p>
         </div>
       </div>
     </>
@@ -475,7 +492,8 @@ const globalStyle = `
   a:hover { opacity: 0.7; }
   button:hover { opacity: 0.8; }
   textarea::placeholder { color: #444; }
-  @keyframes loadbar { 0% { width: 0% } 100% { width: 85% } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeMsg { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
@@ -522,11 +540,9 @@ const css = {
   manifestoLine: { fontFamily: "'DM Serif Display', Georgia, serif", fontSize: "clamp(16px, 2.5vw, 22px)", color: "#444", lineHeight: 1.6 },
   manifestoLineAccent: { fontFamily: "'DM Serif Display', Georgia, serif", fontSize: "clamp(16px, 2.5vw, 22px)", color: "#fff", lineHeight: 1.6, marginTop: 12 },
   loadPage: { minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" },
-  loadInner: { textAlign: "center", width: 300 },
-  loadBar: { height: 1, background: "#1a1a1a", borderRadius: 1, overflow: "hidden", marginBottom: 32 },
-  loadBarFill: { height: "100%", background: "#fff", animation: "loadbar 3s ease forwards" },
-  loadText: { fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#888", letterSpacing: "0.1em", marginBottom: 8 },
-  loadSub: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#666", letterSpacing: "0.08em" },
+  loadInner: { textAlign: "center", width: 320, display: "flex", flexDirection: "column", alignItems: "center", gap: 32 },
+  spinner: { width: 36, height: 36, border: "1px solid #333", borderTop: "1px solid #888", borderRadius: "50%", animation: "spin 0.9s linear infinite", flexShrink: 0 },
+  loadText: { fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#888", letterSpacing: "0.08em", lineHeight: 1.7, animation: "fadeMsg 0.4s ease both", wordBreak: "keep-all" },
   resultPage: { minHeight: "100vh", background: "#0a0a0a", color: "#fff", fontFamily: "'Noto Serif KR', Georgia, serif" },
   resultWrap: { maxWidth: 680, margin: "0 auto", padding: "0 32px 40px" },
   resultHero: { padding: "48px 0 40px", borderBottom: "1px solid #1a1a1a", marginBottom: 32 },
