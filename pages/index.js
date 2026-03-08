@@ -151,6 +151,10 @@ export default function App() {
 
       fullText += decoder.decode(); // flush buffered bytes
 
+      if (fullText.includes("__MAX_TOKENS__")) {
+        throw new Error("입력 데이터가 너무 많습니다. 파일을 줄이거나 텍스트 일부를 삭제 후 다시 시도해주세요.");
+      }
+
       let parsed;
       try {
         parsed = JSON.parse(fullText.trim());
