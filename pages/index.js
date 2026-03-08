@@ -203,11 +203,14 @@ export default function App() {
         <style>{globalStyle}</style>
         {showFloatScore && (
           <div style={css.floatScore}>
-            <span style={{ ...css.floatScoreNum, color: statusColor }}>{total}</span>
-            <span style={{ ...css.floatScoreLabel, color: statusColor }}>{statusLabel}</span>
-            <div style={css.floatMeter}>
-              <div style={{ height: "100%", width: `${Math.min(total / 20 * 100, 100)}%`, background: statusColor, transition: "width 0.5s ease" }} />
+            <div style={{ ...css.floatBadge, border: `1.5px solid ${statusColor}` }}>
+              <span style={{ ...css.floatScoreNum, color: statusColor }}>{total}</span>
+              <svg style={css.floatX} viewBox="0 0 44 44" fill="none">
+                <line x1="8" y1="8" x2="36" y2="36" stroke="#FF4444" strokeWidth="1.5" strokeOpacity="0.75"/>
+                <line x1="36" y1="8" x2="8" y2="36" stroke="#FF4444" strokeWidth="1.5" strokeOpacity="0.75"/>
+              </svg>
             </div>
+            <span style={{ ...css.floatScoreLabel, color: statusColor }}>{statusLabel}</span>
           </div>
         )}
         <div style={css.resultPage}>
@@ -388,8 +391,8 @@ export default function App() {
             )}
             <div style={css.dropHint}>
               txt, md, pdf, docx, xlsx, png, jpg 드래그 또는{" "}
-              <span onClick={() => fileInputRef.current?.click()} style={css.uploadLink}>클릭해서 업로드</span>
-              <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg" multiple style={{ display: "none" }}
+              <label htmlFor="file-upload" style={css.uploadLink}>클릭해서 업로드</label>
+              <input id="file-upload" ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg" multiple style={{ display: "none" }}
                 onChange={(e) => handleFiles(e.target.files)} />
             </div>
           </div>
@@ -573,8 +576,9 @@ const css = {
   shareRow: { display: "flex", gap: 8, flexWrap: "wrap" },
   shareBtn: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#999", background: "transparent", border: "1px solid #333", borderRadius: 2, padding: "8px 14px", cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.1s" },
   downloadBtn: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#888", background: "transparent", border: "1px solid #333", borderRadius: 2, padding: "5px 12px", cursor: "pointer", letterSpacing: "0.08em" },
-  floatScore: { position: "fixed", top: 0, left: 0, right: 0, zIndex: 200, background: "#0a0a0aee", backdropFilter: "blur(8px)", borderBottom: "1px solid #1a1a1a", padding: "10px 32px", display: "flex", alignItems: "center", gap: 12 },
-  floatScoreNum: { fontFamily: "'DM Mono', monospace", fontSize: 28, fontWeight: 500, lineHeight: 1 },
-  floatScoreLabel: { fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.1em", flex: "none" },
-  floatMeter: { flex: 1, height: 1, background: "#1a1a1a", overflow: "hidden", maxWidth: 200 },
+  floatScore: { position: "fixed", top: 10, left: 20, zIndex: 200, display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: "2px 10px 2px 0" },
+  floatBadge: { width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", flexShrink: 0 },
+  floatScoreNum: { fontFamily: "'DM Mono', monospace", fontSize: 17, fontWeight: 500, lineHeight: 1 },
+  floatScoreLabel: { fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.1em" },
+  floatX: { position: "absolute", top: -2, left: -2, width: "calc(100% + 4px)", height: "calc(100% + 4px)", pointerEvents: "none" },
 };
