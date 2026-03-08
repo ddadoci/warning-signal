@@ -13,6 +13,7 @@ export default function App() {
   const [uploadedImages, setUploadedImages] = useState([]); // { name, data, mimeType }
   const [showFloatScore, setShowFloatScore] = useState(false);
   const [loadMsgIdx, setLoadMsgIdx] = useState(0);
+  const [isKakaoInApp, setIsKakaoInApp] = useState(false);
   const textareaRef = useRef();
   const fileInputRef = useRef();
   const heroRef = useRef();
@@ -23,6 +24,10 @@ export default function App() {
     "입력한 데이터들은 저장/보관되지 않습니다.",
     "몇 초 뒤면 당신의 삶을 바꿀 신호체계가 완성됩니다.",
   ];
+
+  useEffect(() => {
+    setIsKakaoInApp(/KAKAOTALK/i.test(navigator.userAgent));
+  }, []);
 
   useEffect(() => {
     if (phase !== "loading") return;
@@ -389,13 +394,21 @@ export default function App() {
               </div>
             )}
             <div style={css.dropHint}>
-              txt, md, pdf, docx, xlsx, png, jpg 드래그 또는{" "}
-              <label style={css.uploadLink}>
-                클릭해서 업로드
-                <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg" multiple
-                  style={{ position: "fixed", top: "-200vh", opacity: 0, pointerEvents: "none" }}
-                  onChange={(e) => handleFiles(e.target.files)} />
-              </label>
+              {isKakaoInApp ? (
+                <span style={{ color: "#666" }}>카카오 인앱 브라우저는 파일 업로드를 지원하지 않습니다. 텍스트를 직접 붙여넣어 주세요.</span>
+              ) : (
+                <>
+                  txt, md, pdf, docx, xlsx, png, jpg 드래그 또는{" "}
+                  <label style={css.uploadLink}>
+                    클릭해서 업로드
+                    <input ref={fileInputRef} type="file"
+                      accept="text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/*,.txt,.md,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg"
+                      multiple
+                      style={{ position: "fixed", top: "-200vh", opacity: 0, pointerEvents: "none" }}
+                      onChange={(e) => handleFiles(e.target.files)} />
+                  </label>
+                </>
+              )}
             </div>
           </div>
 
