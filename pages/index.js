@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 
@@ -11,8 +11,21 @@ export default function App() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]); // { id, label }
   const [uploadedImages, setUploadedImages] = useState([]); // { name, data, mimeType }
+  const [showFloatScore, setShowFloatScore] = useState(false);
   const textareaRef = useRef();
   const fileInputRef = useRef();
+  const heroRef = useRef();
+  const checklistRef = useRef();
+
+  useEffect(() => {
+    if (phase !== "result") { setShowFloatScore(false); return; }
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowFloatScore(!entry.isIntersecting),
+      { threshold: 0, rootMargin: "-60px 0px 0px 0px" }
+    );
+    if (heroRef.current) observer.observe(heroRef.current);
+    return () => observer.disconnect();
+  }, [phase]);
 
   const handleFiles = useCallback((files) => {
     Array.from(files).forEach((file) => {
@@ -153,14 +166,37 @@ export default function App() {
     const statusColor = s3c >= 2 ? "#FF4444" : s3c >= 1 || s2c >= 3 ? "#FF8C42" : total >= 3 ? "#FFD700" : "#44FF88";
     const statusLabel = s3c >= 2 ? "즉각 멈춰야 함" : s3c >= 1 || s2c >= 3 ? "구조 점검 필요" : total >= 3 ? "초기 경보" : "안정";
 
+    const handleDownload = async () => {
+      if (!checklistRef.current) return;
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(checklistRef.current, {
+        backgroundColor: "#0a0a0a",
+        scale: 2,
+        useCORS: true,
+      });
+      const link = document.createElement("a");
+      link.download = "warning-signal-checklist.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+
     return (
       <>
         <Head><title>나만의 위기 신호 — 결과</title></Head>
         <style>{globalStyle}</style>
+        {showFloatScore && (
+          <div style={css.floatScore}>
+            <span style={{ ...css.floatScoreNum, color: statusColor }}>{total}</span>
+            <span style={{ ...css.floatScoreLabel, color: statusColor }}>{statusLabel}</span>
+            <div style={css.floatMeter}>
+              <div style={{ height: "100%", width: `${Math.min(total / 20 * 100, 100)}%`, background: statusColor, transition: "width 0.5s ease" }} />
+            </div>
+          </div>
+        )}
         <div style={css.resultPage}>
           <Nav />
           <div style={css.resultWrap}>
-            <div style={css.resultHero}>
+            <div ref={heroRef} style={css.resultHero}>
               <div style={css.resultHeroTag}>PERSONAL WARNING SIGNAL SYSTEM</div>
               <div style={css.resultHeroTitle}>{result.identity}</div>
               <div style={css.resultHeroScore}>
@@ -187,12 +223,18 @@ export default function App() {
               </div>
             </div>
 
-            <SignalBlock id="s1" tag="STAGE 01" label="초기 경보" accent="#FFD700"
-              items={result.stage1} checked={checked} onToggle={toggleCheck} />
-            <SignalBlock id="s2" tag="STAGE 02" label="구조 점검 필요" accent="#FF8C42"
-              items={result.stage2} checked={checked} onToggle={toggleCheck} />
-            <SignalBlock id="s3" tag="STAGE 03" label="즉각 멈춰야 함" accent="#FF4444"
-              items={result.stage3} checked={checked} onToggle={toggleCheck} />
+            <div ref={checklistRef} style={{ background: "#0a0a0a" }}>
+              <div style={{ padding: "16px 0 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#777", letterSpacing: "0.12em" }}>// 위기 신호 체크리스트</span>
+                <button onClick={handleDownload} style={css.downloadBtn}>↓ 이미지 저장</button>
+              </div>
+              <SignalBlock id="s1" tag="STAGE 01" label="초기 경보" accent="#FFD700"
+                items={result.stage1} checked={checked} onToggle={toggleCheck} />
+              <SignalBlock id="s2" tag="STAGE 02" label="구조 점검 필요" accent="#FF8C42"
+                items={result.stage2} checked={checked} onToggle={toggleCheck} />
+              <SignalBlock id="s3" tag="STAGE 03" label="즉각 멈춰야 함" accent="#FF4444"
+                items={result.stage3} checked={checked} onToggle={toggleCheck} />
+            </div>
 
             <div style={css.block}>
               <div style={css.blockLabel}>// 정기 점검 질문</div>
@@ -229,8 +271,8 @@ export default function App() {
                 <div style={css.blockLabel}>// 정확도를 높이려면</div>
                 {result.dataGaps.map((g, i) => (
                   <div key={i} style={{ display: "flex", padding: "5px 0" }}>
-                    <span style={{ color: "#444", marginRight: 10, fontFamily: "monospace" }}>+</span>
-                    <span style={{ color: "#555", fontSize: 13 }}>{g}</span>
+                    <span style={{ color: "#777", marginRight: 10, fontFamily: "monospace" }}>+</span>
+                    <span style={{ color: "#aaa", fontSize: 13 }}>{g}</span>
                   </div>
                 ))}
               </div>
@@ -401,7 +443,7 @@ function SignalBlock({ id, tag, label, accent, items, checked, onToggle }) {
     <div style={{ ...css.block, borderColor: accent + "33", marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: accent, letterSpacing: "0.14em", border: `1px solid ${accent}44`, padding: "3px 10px", borderRadius: 2 }}>{tag}</span>
-        <span style={{ fontSize: 12, color: "#555" }}>{label}</span>
+        <span style={{ fontSize: 12, color: "#888" }}>{label}</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {items.map((item, i) => {
@@ -415,7 +457,7 @@ function SignalBlock({ id, tag, label, accent, items, checked, onToggle }) {
               </div>
               <div>
                 <div style={{ fontSize: 13, color: on ? "#555" : "#bbb", lineHeight: 1.6, transition: "color 0.1s" }}>{item.signal}</div>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", marginTop: 3, lineHeight: 1.4 }}>{item.basis}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#777", marginTop: 3, lineHeight: 1.4 }}>{item.basis}</div>
               </div>
             </div>
           );
@@ -483,12 +525,12 @@ const css = {
   loadInner: { textAlign: "center", width: 300 },
   loadBar: { height: 1, background: "#1a1a1a", borderRadius: 1, overflow: "hidden", marginBottom: 32 },
   loadBarFill: { height: "100%", background: "#fff", animation: "loadbar 3s ease forwards" },
-  loadText: { fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#555", letterSpacing: "0.1em", marginBottom: 8 },
-  loadSub: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#333", letterSpacing: "0.08em" },
+  loadText: { fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#888", letterSpacing: "0.1em", marginBottom: 8 },
+  loadSub: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#666", letterSpacing: "0.08em" },
   resultPage: { minHeight: "100vh", background: "#0a0a0a", color: "#fff", fontFamily: "'Noto Serif KR', Georgia, serif" },
   resultWrap: { maxWidth: 680, margin: "0 auto", padding: "0 32px 40px" },
   resultHero: { padding: "48px 0 40px", borderBottom: "1px solid #1a1a1a", marginBottom: 32 },
-  resultHeroTag: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#555", letterSpacing: "0.16em", marginBottom: 16 },
+  resultHeroTag: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#777", letterSpacing: "0.16em", marginBottom: 16 },
   resultHeroTitle: { fontSize: "clamp(16px, 2.5vw, 22px)", fontWeight: 600, color: "#fff", lineHeight: 1.4, marginBottom: 28 },
   resultHeroScore: { display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 },
   scoreNum: { fontFamily: "'DM Mono', monospace", fontSize: 56, fontWeight: 500, lineHeight: 1 },
@@ -496,22 +538,27 @@ const css = {
   scoreMeterWrap: { display: "flex", alignItems: "center", gap: 16 },
   scoreMeter: { flex: 1, height: 1, background: "#1a1a1a", overflow: "hidden" },
   scoreMeterFill: { height: "100%", transition: "width 0.5s ease" },
-  resetBtn: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#333", background: "none", border: "1px solid #1a1a1a", borderRadius: 2, padding: "4px 10px", cursor: "pointer", letterSpacing: "0.1em", flexShrink: 0 },
+  resetBtn: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#777", background: "none", border: "1px solid #333", borderRadius: 2, padding: "4px 10px", cursor: "pointer", letterSpacing: "0.1em", flexShrink: 0 },
   block: { border: "1px solid #1a1a1a", borderRadius: 4, padding: "24px", marginBottom: 16 },
-  blockLabel: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#555", letterSpacing: "0.12em", marginBottom: 16 },
+  blockLabel: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#777", letterSpacing: "0.12em", marginBottom: 16 },
   strengthCard: { background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 3, padding: "12px 16px" },
   strengthName: { fontSize: 13, fontWeight: 600, color: "#ccc", marginBottom: 4 },
-  strengthBasis: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#444", lineHeight: 1.5 },
+  strengthBasis: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#777", lineHeight: 1.5 },
   qRow: { display: "flex", gap: 16, padding: "11px 0", borderBottom: "1px solid #1a1a1a", alignItems: "flex-start" },
-  qTag: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#444", flexShrink: 0, width: 64, letterSpacing: "0.08em", paddingTop: 2 },
-  qText: { fontSize: 13, color: "#888", lineHeight: 1.7 },
+  qTag: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#777", flexShrink: 0, width: 64, letterSpacing: "0.08em", paddingTop: 2 },
+  qText: { fontSize: 13, color: "#aaa", lineHeight: 1.7 },
   crisisCard: { flex: 1, minWidth: 200, background: "#0d0d0d", border: "1px solid #FF8C4233", borderRadius: 3, padding: "16px" },
   crisisTag: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#FF8C42", letterSpacing: "0.12em", marginBottom: 8 },
-  crisisText: { fontSize: 12, color: "#777", lineHeight: 1.7 },
-  ctaBtnWhite: { flex: 1, background: "transparent", color: "#333", border: "1px solid #1a1a1a", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", letterSpacing: "0.06em" },
+  crisisText: { fontSize: 12, color: "#aaa", lineHeight: 1.7 },
+  ctaBtnWhite: { flex: 1, background: "transparent", color: "#888", border: "1px solid #333", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", letterSpacing: "0.06em" },
   ctaBtnBlack: { flex: 2, background: "#fff", color: "#000", border: "none", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", fontWeight: 500, letterSpacing: "0.04em" },
   shareBlock: { border: "1px solid #1a1a1a", borderRadius: 4, padding: "24px", marginBottom: 16 },
-  shareDesc: { fontSize: 13, color: "#444", marginBottom: 20, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" },
+  shareDesc: { fontSize: 13, color: "#888", marginBottom: 20, fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" },
   shareRow: { display: "flex", gap: 8, flexWrap: "wrap" },
-  shareBtn: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#666", background: "transparent", border: "1px solid #222", borderRadius: 2, padding: "8px 14px", cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.1s" },
+  shareBtn: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#999", background: "transparent", border: "1px solid #333", borderRadius: 2, padding: "8px 14px", cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.1s" },
+  downloadBtn: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#888", background: "transparent", border: "1px solid #333", borderRadius: 2, padding: "5px 12px", cursor: "pointer", letterSpacing: "0.08em" },
+  floatScore: { position: "fixed", top: 0, left: 0, right: 0, zIndex: 200, background: "#0a0a0aee", backdropFilter: "blur(8px)", borderBottom: "1px solid #1a1a1a", padding: "10px 32px", display: "flex", alignItems: "center", gap: 12 },
+  floatScoreNum: { fontFamily: "'DM Mono', monospace", fontSize: 28, fontWeight: 500, lineHeight: 1 },
+  floatScoreLabel: { fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.1em", flex: "none" },
+  floatMeter: { flex: 1, height: 1, background: "#1a1a1a", overflow: "hidden", maxWidth: 200 },
 };
