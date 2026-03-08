@@ -189,17 +189,44 @@ export default function App() {
     const statusLabel = s3c >= 2 ? "즉각 멈춰야 함" : s3c >= 1 || s2c >= 3 ? "구조 점검 필요" : total >= 3 ? "초기 경보" : "안정";
 
     const handleDownload = async () => {
-      if (!checklistRef.current) return;
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(checklistRef.current, {
-        backgroundColor: "#0a0a0a",
-        scale: 2,
-        useCORS: true,
-      });
-      const link = document.createElement("a");
-      link.download = "warning-signal-checklist.png";
-      link.href = canvas.toDataURL("image/png");
-      link.click();
+      const XLSX = await import("xlsx");
+
+      const stageInfo = [
+        { key: "s1", tag: "STAGE 01", label: "초기 경보 (1점/개)", items: result.stage1 || [], weight: 1 },
+        { key: "s2", tag: "STAGE 02", label: "구조 점검 필요 (2점/개)", items: result.stage2 || [], weight: 2 },
+        { key: "s3", tag: "STAGE 03", label: "즉각 멈춰야 함 (3점/개)", items: result.stage3 || [], weight: 3 },
+      ];
+
+      const rows = [];
+      rows.push(["나의 위기 신호 체크리스트", "", result.identity || ""]);
+      rows.push([]);
+      rows.push(["총 점수", "SCORE"]);   // row 3 → B3
+      rows.push(["상태", "STATUS"]);     // row 4 → B4
+      rows.push([]);
+
+      const ranges = {};
+      for (const stage of stageInfo) {
+        rows.push([`[${stage.tag}] ${stage.label}`]);
+        rows.push(["체크 (1=해당, 0=아님)", "신호", "근거"]);
+        const startR = rows.length + 1;
+        for (const item of stage.items) {
+          rows.push([0, item.signal || "", item.basis || ""]);
+        }
+        ranges[stage.key] = { start: startR, end: rows.length };
+        rows.push([]);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+
+      const scoreF = `SUM(A${ranges.s1.start}:A${ranges.s1.end})*1+SUM(A${ranges.s2.start}:A${ranges.s2.end})*2+SUM(A${ranges.s3.start}:A${ranges.s3.end})*3`;
+      ws["B3"] = { t: "n", f: scoreF };
+      ws["B4"] = { t: "s", f: `IF(SUM(A${ranges.s3.start}:A${ranges.s3.end})>=2,"즉각 멈춰야 함",IF(OR(SUM(A${ranges.s3.start}:A${ranges.s3.end})>=1,SUM(A${ranges.s2.start}:A${ranges.s2.end})>=3),"구조 점검 필요",IF(B3>=3,"초기 경보","안정")))` };
+
+      ws["!cols"] = [{ wch: 20 }, { wch: 52 }, { wch: 42 }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "위기신호 체크리스트");
+      XLSX.writeFile(wb, `warning-signal.xlsx`);
     };
 
     return (
@@ -250,7 +277,7 @@ export default function App() {
             <div ref={checklistRef} style={{ background: "#0a0a0a" }}>
               <div style={{ padding: "16px 0 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#777", letterSpacing: "0.12em" }}>// 위기 신호 체크리스트</span>
-                <button onClick={handleDownload} style={css.downloadBtn}>↓ 이미지 저장</button>
+                <button onClick={handleDownload} style={css.downloadBtn}>↓ 엑셀 저장</button>
               </div>
               <SignalBlock id="s1" tag="STAGE 01" label="초기 경보" accent="#FFD700"
                 items={result.stage1} checked={checked} onToggle={toggleCheck} />
