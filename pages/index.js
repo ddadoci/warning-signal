@@ -391,9 +391,12 @@ export default function App() {
             )}
             <div style={css.dropHint}>
               txt, md, pdf, docx, xlsx, png, jpg 드래그 또는{" "}
-              <label htmlFor="file-upload" style={css.uploadLink}>클릭해서 업로드</label>
-              <input id="file-upload" ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg" multiple style={{ display: "none" }}
-                onChange={(e) => handleFiles(e.target.files)} />
+              <label style={css.uploadLink}>
+                클릭해서 업로드
+                <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg" multiple
+                  style={{ position: "fixed", top: "-200vh", opacity: 0, pointerEvents: "none" }}
+                  onChange={(e) => handleFiles(e.target.files)} />
+              </label>
             </div>
           </div>
 
@@ -576,7 +579,7 @@ const css = {
   shareRow: { display: "flex", gap: 8, flexWrap: "wrap" },
   shareBtn: { fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#999", background: "transparent", border: "1px solid #333", borderRadius: 2, padding: "8px 14px", cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.1s" },
   downloadBtn: { fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#888", background: "transparent", border: "1px solid #333", borderRadius: 2, padding: "5px 12px", cursor: "pointer", letterSpacing: "0.08em" },
-  floatScore: { position: "fixed", top: 10, left: 20, zIndex: 200, display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: "2px 10px 2px 0" },
+  floatScore: { position: "fixed", top: 0, left: 0, zIndex: 200, display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: "20px 32px" },
   floatBadge: { width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", flexShrink: 0 },
   floatScoreNum: { fontFamily: "'DM Mono', monospace", fontSize: 17, fontWeight: 500, lineHeight: 1 },
   floatScoreLabel: { fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.1em" },
