@@ -5,7 +5,7 @@ export default function Article() {
   return (
     <>
       <Head>
-        <title>위기 신호란 무엇인가 — checkmywarning</title>
+        <title>위기 신호란 무엇인가 | checkmywarning</title>
         <meta name="description" content="번아웃과 위기는 갑자기 오지 않습니다. 항상 신호가 먼저 옵니다. 위기 신호의 개념과 유형, 그리고 내 신호를 파악하는 방법을 알아봅니다." />
       </Head>
       <style>{globalStyle}</style>
@@ -39,7 +39,7 @@ export default function Article() {
             </p>
             <p style={css.p}>
               예를 들어, 평소에 유머 감각이 넘치는 사람이 웃음이 사라진다면 그것이 위기 신호입니다.
-              평소에 먼저 연락하는 사람이 연락을 끊는다면, 평소에 문제 앞에서 에너지가 생기는 사람이 회피하기 시작한다면 — 그것이 그 사람의 위기 신호입니다.
+              평소에 먼저 연락하는 사람이 연락을 끊는다면, 평소에 문제 앞에서 에너지가 생기는 사람이 회피하기 시작한다면, 그것이 그 사람의 위기 신호입니다.
             </p>
 
             <h2 style={css.h2}>왜 신호는 사람마다 다를까</h2>

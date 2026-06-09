@@ -30,7 +30,7 @@ export default function About() {
   return (
     <>
       <Head>
-        <title>소개 — checkmywarning</title>
+        <title>소개 | checkmywarning</title>
         <meta name="description" content="checkmywarning은 자기 구조 분석 기반의 위기 신호 자기점검 체계를 만들어주는 서비스입니다." />
       </Head>
       <style>{globalStyle}</style>

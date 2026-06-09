@@ -173,7 +173,7 @@ export default function App() {
 
   if (phase === "loading") return (
     <>
-      <Head><title>분석 중 — checkmywarning</title></Head>
+      <Head><title>분석 중 | checkmywarning</title></Head>
       <style>{globalStyle}</style>
       <div style={css.loadPage}>
         <div style={css.loadInner}>
@@ -225,16 +225,18 @@ export default function App() {
       if (result.actionPlan) {
         rows.push(["[대응 솔루션 · 회복 루트]"]);
         const planLevels = [
-          { key: "stable", label: "LV.0 안정 — 유지" },
-          { key: "stage1", label: "LV.1 초기 경보 — 조기 차단" },
-          { key: "stage2", label: "LV.2 구조 점검 — 부하 줄이기" },
-          { key: "stage3", label: "LV.3 즉각 멈춤 — 정지·도움 요청" },
+          { key: "stable", label: "LV.0 안정: 유지" },
+          { key: "stage1", label: "LV.1 초기 경보: 조기 차단" },
+          { key: "stage2", label: "LV.2 구조 점검: 부하 줄이기" },
+          { key: "stage3", label: "LV.3 즉각 멈춤: 정지·도움 요청" },
         ];
         for (const lv of planLevels) {
           const plan = result.actionPlan[lv.key];
           if (!plan) continue;
           rows.push([lv.label, plan.focus || ""]);
-          for (const a of plan.actions || []) rows.push(["", `→ ${a}`]);
+          if (plan.trigger) rows.push(["", `[판단 기준] ${plan.trigger}`]);
+          if (plan.firstStep) rows.push(["", `[가장 먼저] ${plan.firstStep}`]);
+          for (const a of plan.actions || []) rows.push(["", a]);
         }
         rows.push([]);
       }
@@ -254,7 +256,7 @@ export default function App() {
 
     return (
       <>
-        <Head><title>나만의 위기 신호 — 결과</title></Head>
+        <Head><title>나만의 위기 신호 | 결과</title></Head>
         <style>{globalStyle}</style>
         {showFloatScore && (
           <div style={css.floatScore}>
@@ -319,10 +321,10 @@ export default function App() {
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {[
-                    { key: "stable", tag: "LV.0", label: "안정 — 유지", accent: "#44FF88" },
-                    { key: "stage1", tag: "LV.1", label: "초기 경보 — 조기 차단", accent: "#FFD700" },
-                    { key: "stage2", tag: "LV.2", label: "구조 점검 — 부하 줄이기", accent: "#FF8C42" },
-                    { key: "stage3", tag: "LV.3", label: "즉각 멈춤 — 정지·도움 요청", accent: "#FF4444" },
+                    { key: "stable", tag: "LV.0", label: "안정: 유지", accent: "#44FF88" },
+                    { key: "stage1", tag: "LV.1", label: "초기 경보: 조기 차단", accent: "#FFD700" },
+                    { key: "stage2", tag: "LV.2", label: "구조 점검: 부하 줄이기", accent: "#FF8C42" },
+                    { key: "stage3", tag: "LV.3", label: "즉각 멈춤: 정지·도움 요청", accent: "#FF4444" },
                   ].map((lv) => {
                     const plan = result.actionPlan[lv.key];
                     if (!plan) return null;
@@ -332,18 +334,29 @@ export default function App() {
                         ...css.solutionCard,
                         borderColor: active ? lv.accent : "#1a1a1a",
                         background: active ? lv.accent + "0d" : "transparent",
-                        opacity: active ? 1 : 0.55,
+                        opacity: active ? 1 : 0.5,
                       }}>
                         <div style={css.solutionHead}>
                           <span style={{ ...css.solutionTag, color: lv.accent, borderColor: lv.accent + "55" }}>{lv.tag}</span>
                           <span style={css.solutionLabel}>{lv.label}</span>
-                          {active && <span style={{ ...css.solutionNow, color: lv.accent, borderColor: lv.accent }}>← 지금 여기</span>}
+                          {active && <span style={{ ...css.solutionNow, color: lv.accent, borderColor: lv.accent }}>지금 여기</span>}
                         </div>
+                        {plan.trigger && (
+                          <div style={css.solutionTrigger}>
+                            <span style={{ color: lv.accent }}>이 단계 판단 기준</span> {plan.trigger}
+                          </div>
+                        )}
                         <div style={css.solutionFocus}>{plan.focus}</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                        {plan.firstStep && (
+                          <div style={{ ...css.solutionFirst, borderColor: lv.accent + "55", background: lv.accent + "0a" }}>
+                            <span style={{ ...css.solutionFirstTag, color: lv.accent, borderColor: lv.accent }}>가장 먼저</span>
+                            <span style={css.solutionFirstText}>{plan.firstStep}</span>
+                          </div>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 10 }}>
                           {plan.actions?.map((a, i) => (
                             <div key={i} style={{ display: "flex", gap: 8 }}>
-                              <span style={{ color: lv.accent, fontFamily: "'DM Mono', monospace", fontSize: 12, flexShrink: 0 }}>→</span>
+                              <span style={{ color: lv.accent, fontFamily: "'DM Mono', monospace", fontSize: 12, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</span>
                               <span style={css.solutionAction}>{a}</span>
                             </div>
                           ))}
@@ -445,10 +458,10 @@ export default function App() {
   return (
     <>
       <Head>
-        <title>checkmywarning — 당신이 무너지기 전에 신호가 온다</title>
+        <title>checkmywarning | 당신이 무너지기 전에 신호가 온다</title>
         <meta name="description" content="자신에 대한 정보를 입력하면 AI가 당신 전용 위기 신호 자기점검 체계를 만들어드립니다." />
         <meta property="og:title" content="당신이 무너지기 전에 신호가 온다. 당신만 모를 뿐." />
-        <meta property="og:description" content="checkmywarning — 나만의 위기 신호 체크리스트" />
+        <meta property="og:description" content="checkmywarning | 나만의 위기 신호 체크리스트" />
       </Head>
       <style>{globalStyle}</style>
       <div style={css.inputPage}>
@@ -463,7 +476,7 @@ export default function App() {
           <p style={css.heroSub}>당신만 모를 뿐.</p>
           <div style={css.heroDivider} />
           <p style={css.heroDesc}>
-            자신에 대해 아는 것을 입력하면 — AI가 당신 전용 위기 신호 체계를 만듭니다.<br />
+            자신에 대해 아는 것을 입력하면, AI가 당신 전용 위기 신호 체계를 만듭니다.<br />
             번아웃이 오기 전에, 스스로 먼저 알아채세요.
           </p>
         </div>
@@ -480,7 +493,7 @@ export default function App() {
               ref={textareaRef}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={"검사 결과, 주변의 말, 스스로 관찰한 패턴, 반복되는 어려움\n사주나 별자리 정보까지 — 형식 없이, 아는 만큼만."}
+              placeholder={"검사 결과, 주변의 말, 스스로 관찰한 패턴, 반복되는 어려움\n사주나 별자리 정보까지. 형식 없이, 아는 만큼만."}
               style={css.textarea}
             />
             {uploadedFiles.length > 0 && (
@@ -685,7 +698,11 @@ const css = {
   solutionTag: { fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", border: "1px solid", borderRadius: 2, padding: "3px 8px" },
   solutionLabel: { fontSize: 13, color: "#ccc", fontWeight: 600 },
   solutionNow: { fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.1em", border: "1px solid", borderRadius: 2, padding: "2px 7px", marginLeft: "auto" },
-  solutionFocus: { fontSize: 13, color: "#ddd", lineHeight: 1.6, wordBreak: "keep-all" },
+  solutionTrigger: { fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#888", lineHeight: 1.6, marginBottom: 8, wordBreak: "keep-all" },
+  solutionFocus: { fontSize: 13, color: "#ddd", lineHeight: 1.6, fontWeight: 600, wordBreak: "keep-all" },
+  solutionFirst: { display: "flex", gap: 8, alignItems: "flex-start", border: "1px solid", borderRadius: 3, padding: "9px 11px", marginTop: 10 },
+  solutionFirstTag: { fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.08em", border: "1px solid", borderRadius: 2, padding: "2px 6px", flexShrink: 0, whiteSpace: "nowrap" },
+  solutionFirstText: { fontSize: 12.5, color: "#eee", lineHeight: 1.6, wordBreak: "keep-all" },
   solutionAction: { fontSize: 12.5, color: "#aaa", lineHeight: 1.6, wordBreak: "keep-all" },
   ctaBtnWhite: { flex: 1, background: "transparent", color: "#888", border: "1px solid #333", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", letterSpacing: "0.06em" },
   ctaBtnBlack: { flex: 2, background: "#fff", color: "#000", border: "none", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", fontWeight: 500, letterSpacing: "0.04em" },

@@ -16,7 +16,7 @@ export default function Privacy() {
   return (
     <>
       <Head>
-        <title>개인정보처리방침 — checkmywarning</title>
+        <title>개인정보처리방침 | checkmywarning</title>
         <meta name="description" content="checkmywarning 개인정보처리방침" />
       </Head>
       <style>{globalStyle}</style>
