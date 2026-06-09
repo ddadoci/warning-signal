@@ -2,6 +2,78 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 
+// 스트리밍 중 불완전한 JSON을 최대한 복구해 파싱 (점진적 렌더링용)
+function repairAndParse(text) {
+  if (!text) return null;
+  try {
+    const obj = JSON.parse(text);
+    if (obj && typeof obj === "object") return obj;
+  } catch {}
+  // 끝에서부터 조금씩 잘라가며 닫아서 파싱 가능한 가장 긴 prefix를 찾음 (윈도우 제한으로 O(n^2) 방지)
+  const minEnd = Math.max(0, text.length - 600);
+  for (let end = text.length; end > minEnd; end--) {
+    const s = text.slice(0, end);
+    const stack = [];
+    let inStr = false, esc = false;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === "\\") esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === "{") stack.push("}");
+      else if (ch === "[") stack.push("]");
+      else if (ch === "}" || ch === "]") stack.pop();
+    }
+    let candidate = s;
+    if (inStr) candidate += '"';
+    candidate = candidate.replace(/[\s,:]+$/, "");
+    for (let i = stack.length - 1; i >= 0; i--) candidate += stack[i];
+    try {
+      const obj = JSON.parse(candidate);
+      if (obj && typeof obj === "object") return obj;
+    } catch {}
+  }
+  return null;
+}
+
+// 이미지를 긴 변 기준 maxDim 이하로 축소해 base64 반환 (Claude vision 권장 ~1568px)
+function resizeImage(file, maxDim = 1568) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { width, height } = img;
+      const scale = Math.min(1, maxDim / Math.max(width, height));
+      const isPng = (file.name || "").toLowerCase().endsWith(".png");
+      // 이미 작고 가벼우면 원본 사용
+      if (scale === 1 && file.size < 1_500_000) {
+        const r = new FileReader();
+        r.onload = (e) => resolve({ data: String(e.target.result).split(",")[1], mimeType: isPng ? "image/png" : "image/jpeg" });
+        r.onerror = reject;
+        r.readAsDataURL(file);
+        return;
+      }
+      const w = Math.max(1, Math.round(width * scale));
+      const h = Math.max(1, Math.round(height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      const outType = isPng ? "image/png" : "image/jpeg";
+      const dataUrl = isPng ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.85);
+      resolve({ data: dataUrl.split(",")[1], mimeType: outType });
+    };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
+
 export default function App() {
   const [phase, setPhase] = useState("input");
   const [inputText, setInputText] = useState("");
@@ -54,17 +126,24 @@ export default function App() {
     Array.from(files).forEach((file) => {
       const name = file.name.toLowerCase();
 
-      // 이미지 (PNG, JPG)
+      // 이미지 (PNG, JPG) — 업로드 전 클라이언트에서 리사이즈해 전송량/처리시간 절감
       if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")) {
         const id = Date.now() + Math.random();
         setUploadedFiles((f) => [...f, { id, label: file.name }]);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const base64 = e.target.result.split(",")[1];
-          const mimeType = name.endsWith(".png") ? "image/png" : "image/jpeg";
-          setUploadedImages((prev) => [...prev, { name: file.name, data: base64, mimeType }]);
+        const fallback = () => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const base64 = e.target.result.split(",")[1];
+            const mimeType = name.endsWith(".png") ? "image/png" : "image/jpeg";
+            setUploadedImages((prev) => [...prev, { name: file.name, data: base64, mimeType }]);
+          };
+          reader.readAsDataURL(file);
         };
-        reader.readAsDataURL(file);
+        resizeImage(file)
+          .then(({ data, mimeType }) => {
+            setUploadedImages((prev) => [...prev, { name: file.name, data, mimeType }]);
+          })
+          .catch(fallback);
         return;
       }
 
@@ -142,11 +221,24 @@ export default function App() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let fullText = "";
+      let shownResult = false;
+      let lastRender = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         fullText += decoder.decode(value, { stream: true });
+        if (fullText.includes("__MAX_TOKENS__")) break;
+        // 점진적 렌더링: 스트림이 오는 대로 부분 JSON을 파싱해 즉시 표시
+        const now = Date.now();
+        if (now - lastRender > 120) {
+          lastRender = now;
+          const partial = repairAndParse(fullText);
+          if (partial && partial.identity) {
+            setResult(partial);
+            if (!shownResult) { setPhase("result"); shownResult = true; }
+          }
+        }
       }
 
       fullText += decoder.decode(); // flush buffered bytes
