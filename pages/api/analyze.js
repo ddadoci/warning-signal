@@ -70,10 +70,53 @@ const TOOL = {
         description: "분석에 더 있으면 좋을 정보 2~3가지",
         items: { type: "string" },
       },
+      actionPlan: {
+        type: "object",
+        description: "각 위기 수준에 도달했을 때 이 사람이 따라야 할 구체적 대응 솔루션. 위로가 아닌, 입력 데이터(강점/패턴)에 기반한 실행 가능한 행동.",
+        properties: {
+          stable: {
+            type: "object",
+            description: "안정 상태일 때 — 유지/예방 루틴",
+            properties: {
+              focus: { type: "string", description: "핵심 대응 방향 한 줄" },
+              actions: { type: "array", description: "구체적 행동 2~3개", items: { type: "string" } },
+            },
+            required: ["focus", "actions"],
+          },
+          stage1: {
+            type: "object",
+            description: "초기 경보 수준일 때 — 조기 차단",
+            properties: {
+              focus: { type: "string", description: "핵심 대응 방향 한 줄" },
+              actions: { type: "array", description: "구체적 행동 2~3개", items: { type: "string" } },
+            },
+            required: ["focus", "actions"],
+          },
+          stage2: {
+            type: "object",
+            description: "구조 점검 필요 수준일 때 — 부하 줄이기/재정비",
+            properties: {
+              focus: { type: "string", description: "핵심 대응 방향 한 줄" },
+              actions: { type: "array", description: "구체적 행동 2~3개", items: { type: "string" } },
+            },
+            required: ["focus", "actions"],
+          },
+          stage3: {
+            type: "object",
+            description: "즉각 멈춰야 함 수준일 때 — 정지/외부 도움",
+            properties: {
+              focus: { type: "string", description: "핵심 대응 방향 한 줄" },
+              actions: { type: "array", description: "구체적 행동 2~3개 (필요 시 전문가/주변 도움 요청 포함)", items: { type: "string" } },
+            },
+            required: ["focus", "actions"],
+          },
+        },
+        required: ["stable", "stage1", "stage2", "stage3"],
+      },
     },
     required: [
       "identity", "strengths", "stage1", "stage2", "stage3",
-      "weeklyQ", "monthlyQ", "crisisA", "crisisB", "dataGaps",
+      "weeklyQ", "monthlyQ", "crisisA", "crisisB", "dataGaps", "actionPlan",
     ],
   },
 };
@@ -92,7 +135,8 @@ export default async function handler(req) {
 - 위로 문장 금지. 구조 분석만.
 - 각 신호는 입력된 데이터 중 하나 이상을 명시적 근거로 사용
 - 데이터 없는 영역은 있는 것들로 교차 추론
-- 신호는 행동/관계/내면 영역 골고루`;
+- 신호는 행동/관계/내면 영역 골고루
+- actionPlan(대응 솔루션)은 추상적 조언("쉬세요") 금지. 이 사람의 강점/패턴을 활용한 구체적이고 실행 가능한 행동으로. 단계가 올라갈수록 강도/외부 개입이 커지도록.`;
 
   const USER = `다음은 사용자가 자신에 대해 입력한 정보입니다:
 
@@ -100,7 +144,7 @@ export default async function handler(req) {
 ${input}
 ---
 
-generate_warning_signal 도구를 사용해 이 사람 전용 위기 신호 체계를 만들어주세요. 각 stage는 최소 4개 이상, 강점은 3~5개.`;
+generate_warning_signal 도구를 사용해 이 사람 전용 위기 신호 체계를 만들어주세요. 각 stage는 최소 4개 이상, 강점은 3~5개. actionPlan은 안정/1단계/2단계/3단계 각각에 대해 핵심 방향 1줄과 구체적 행동 2~3개를 반드시 포함.`;
 
   let userContent;
   if (images && images.length > 0) {

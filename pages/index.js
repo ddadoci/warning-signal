@@ -191,6 +191,7 @@ export default function App() {
     const total = s1c + s2c * 2 + s3c * 3;
     const statusColor = s3c >= 2 ? "#FF4444" : s3c >= 1 || s2c >= 3 ? "#FF8C42" : total >= 3 ? "#FFD700" : "#44FF88";
     const statusLabel = s3c >= 2 ? "즉각 멈춰야 함" : s3c >= 1 || s2c >= 3 ? "구조 점검 필요" : total >= 3 ? "초기 경보" : "안정";
+    const currentStageKey = s3c >= 2 ? "stage3" : s3c >= 1 || s2c >= 3 ? "stage2" : total >= 3 ? "stage1" : "stable";
 
     const handleDownload = async () => {
       const XLSX = await import("xlsx");
@@ -217,6 +218,24 @@ export default function App() {
           rows.push([0, item.signal || "", item.basis || ""]);
         }
         ranges[stage.key] = { start: startR, end: rows.length };
+        rows.push([]);
+      }
+
+      // 대응 솔루션 (회복 루트)
+      if (result.actionPlan) {
+        rows.push(["[대응 솔루션 · 회복 루트]"]);
+        const planLevels = [
+          { key: "stable", label: "LV.0 안정 — 유지" },
+          { key: "stage1", label: "LV.1 초기 경보 — 조기 차단" },
+          { key: "stage2", label: "LV.2 구조 점검 — 부하 줄이기" },
+          { key: "stage3", label: "LV.3 즉각 멈춤 — 정지·도움 요청" },
+        ];
+        for (const lv of planLevels) {
+          const plan = result.actionPlan[lv.key];
+          if (!plan) continue;
+          rows.push([lv.label, plan.focus || ""]);
+          for (const a of plan.actions || []) rows.push(["", `→ ${a}`]);
+        }
         rows.push([]);
       }
 
@@ -290,6 +309,51 @@ export default function App() {
               <SignalBlock id="s3" tag="STAGE 03" label="즉각 멈춰야 함" accent="#FF4444"
                 items={result.stage3} checked={checked} onToggle={toggleCheck} />
             </div>
+
+            {result.actionPlan && (
+              <div style={css.block}>
+                <div style={css.blockLabel}>// 지금 따라야 할 대응 솔루션</div>
+                <p style={css.solutionLead}>
+                  현재 <span style={{ color: statusColor, fontWeight: 700 }}>{statusLabel}</span> 수준입니다.
+                  {" "}아래 회복 루트에서 <span style={{ color: statusColor }}>지금 여기</span> 단계의 행동부터 따라가세요.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[
+                    { key: "stable", tag: "LV.0", label: "안정 — 유지", accent: "#44FF88" },
+                    { key: "stage1", tag: "LV.1", label: "초기 경보 — 조기 차단", accent: "#FFD700" },
+                    { key: "stage2", tag: "LV.2", label: "구조 점검 — 부하 줄이기", accent: "#FF8C42" },
+                    { key: "stage3", tag: "LV.3", label: "즉각 멈춤 — 정지·도움 요청", accent: "#FF4444" },
+                  ].map((lv) => {
+                    const plan = result.actionPlan[lv.key];
+                    if (!plan) return null;
+                    const active = lv.key === currentStageKey;
+                    return (
+                      <div key={lv.key} style={{
+                        ...css.solutionCard,
+                        borderColor: active ? lv.accent : "#1a1a1a",
+                        background: active ? lv.accent + "0d" : "transparent",
+                        opacity: active ? 1 : 0.55,
+                      }}>
+                        <div style={css.solutionHead}>
+                          <span style={{ ...css.solutionTag, color: lv.accent, borderColor: lv.accent + "55" }}>{lv.tag}</span>
+                          <span style={css.solutionLabel}>{lv.label}</span>
+                          {active && <span style={{ ...css.solutionNow, color: lv.accent, borderColor: lv.accent }}>← 지금 여기</span>}
+                        </div>
+                        <div style={css.solutionFocus}>{plan.focus}</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                          {plan.actions?.map((a, i) => (
+                            <div key={i} style={{ display: "flex", gap: 8 }}>
+                              <span style={{ color: lv.accent, fontFamily: "'DM Mono', monospace", fontSize: 12, flexShrink: 0 }}>→</span>
+                              <span style={css.solutionAction}>{a}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div style={css.block}>
               <div style={css.blockLabel}>// 정기 점검 질문</div>
@@ -615,6 +679,14 @@ const css = {
   crisisCard: { flex: 1, minWidth: 200, background: "#0d0d0d", border: "1px solid #FF8C4233", borderRadius: 3, padding: "16px" },
   crisisTag: { fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#FF8C42", letterSpacing: "0.12em", marginBottom: 8 },
   crisisText: { fontSize: 12, color: "#aaa", lineHeight: 1.7 },
+  solutionLead: { fontSize: 13, color: "#aaa", lineHeight: 1.7, marginBottom: 16, wordBreak: "keep-all" },
+  solutionCard: { border: "1px solid #1a1a1a", borderRadius: 4, padding: "16px 18px", transition: "all 0.15s" },
+  solutionHead: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" },
+  solutionTag: { fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", border: "1px solid", borderRadius: 2, padding: "3px 8px" },
+  solutionLabel: { fontSize: 13, color: "#ccc", fontWeight: 600 },
+  solutionNow: { fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.1em", border: "1px solid", borderRadius: 2, padding: "2px 7px", marginLeft: "auto" },
+  solutionFocus: { fontSize: 13, color: "#ddd", lineHeight: 1.6, wordBreak: "keep-all" },
+  solutionAction: { fontSize: 12.5, color: "#aaa", lineHeight: 1.6, wordBreak: "keep-all" },
   ctaBtnWhite: { flex: 1, background: "transparent", color: "#888", border: "1px solid #333", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", letterSpacing: "0.06em" },
   ctaBtnBlack: { flex: 2, background: "#fff", color: "#000", border: "none", borderRadius: 2, padding: "13px", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer", fontWeight: 500, letterSpacing: "0.04em" },
   shareBlock: { border: "1px solid #1a1a1a", borderRadius: 4, padding: "24px", marginBottom: 16 },
