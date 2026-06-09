@@ -221,24 +221,12 @@ export default function App() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let fullText = "";
-      let shownResult = false;
-      let lastRender = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         fullText += decoder.decode(value, { stream: true });
         if (fullText.includes("__MAX_TOKENS__")) break;
-        // 점진적 렌더링: 스트림이 오는 대로 부분 JSON을 파싱해 즉시 표시
-        const now = Date.now();
-        if (now - lastRender > 120) {
-          lastRender = now;
-          const partial = repairAndParse(fullText);
-          if (partial && partial.identity) {
-            setResult(partial);
-            if (!shownResult) { setPhase("result"); shownResult = true; }
-          }
-        }
       }
 
       fullText += decoder.decode(); // flush buffered bytes
@@ -250,8 +238,9 @@ export default function App() {
       let parsed;
       try {
         parsed = JSON.parse(fullText.trim());
-      } catch (e) {
-        throw new Error(`파싱 오류: ${e.message} | 응답: ${fullText.slice(0, 120)}`);
+      } catch {
+        parsed = repairAndParse(fullText);
+        if (!parsed) throw new Error("응답을 파싱할 수 없습니다. 다시 시도해주세요.");
       }
       setResult(parsed);
       setPhase("result");
